@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix frontend",
+    "lint": "npm run lint --prefix frontend && npm run lint --prefix backend",
+    "db:setup": "npm run db:setup --prefix backend",
+    "db:export": "npm run db:export --prefix backend",
+    "test": "npm run lint && npm run test:unit",
+    "test:unit": "npm run test --prefix backend && node --test frontend/test/*.test.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

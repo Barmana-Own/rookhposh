@@ -1,0 +1,29 @@
+{
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "lint": "node --check src/server.js",
+    "test": "node --test test/*.test.js",
+    "db:setup": "node src/database/setup.js",
+    "db:export": "node src/database/export.js"
+  },
+  "dependencies": {
+    "bcrypt": "latest",
+    "cors": "latest",
+    "dotenv": "latest",
+    "exceljs": "^4.4.0",
+    "express": "latest",
+    "express-validator": "latest",
+    "helmet": "latest",
+    "jsonwebtoken": "latest",
+    "morgan": "latest",
+    "multer": "latest",
+    "mysql2": "latest",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "nodemon": "latest"
+  },
+  "private": true,
+  "type": "commonjs"
+}

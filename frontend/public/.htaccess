@@ -1,0 +1,20 @@
+RewriteEngine On
+
+RewriteRule ^health$ http://localhost:5050/health [P,L]
+
+RewriteCond %{REQUEST_URI} ^/api/(.*)$
+RewriteRule ^api/(.*)$ http://localhost:5050/api/$1 [P,L]
+
+RewriteCond %{REQUEST_URI} ^/pro-api/(.*)$
+RewriteRule ^pro-api/(.*)$ http://localhost:5050/pro-api/$1 [P,L]
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^ index.html [L]
+</IfModule>

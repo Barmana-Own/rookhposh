@@ -1,0 +1,47 @@
+{
+  "project": "Rookhposh Dashboard Marketplace",
+  "release": "20260827-security-deps-r3",
+  "finalStageStatus": "PASS",
+  "workflowStatus": "COMPLETE",
+  "projectStatus": "COMPLETE",
+  "generatedAt": "2026-08-27T10:52:13Z",
+  "runtime": {
+    "localNode": "v22.22.0",
+    "localNpm": "10.9.4",
+    "productionProcess": "dash-backend"
+  },
+  "source": {
+    "frontend": "frontend",
+    "backend": "backend",
+    "databaseMigration": "NONE",
+    "gitRevision": "NOT_AVAILABLE"
+  },
+  "commands": {
+    "test": "npm test",
+    "build": "npm run build",
+    "frontendAudit": "npm audit --prefix frontend --omit=dev --audit-level=high",
+    "backendAudit": "npm audit --prefix backend --omit=dev --audit-level=high"
+  },
+  "validation": {
+    "tests": "PASS: 24/24",
+    "lint": "PASS: 0 errors, 4 pre-existing warnings",
+    "build": "PASS",
+    "frontendSecurityAudit": "PASS: 0 vulnerabilities",
+    "backendHighSecurityAudit": "PASS: no High or Critical vulnerabilities",
+    "productionHealth": "PASS",
+    "productionTryOn": "PASS: final image/webp, 500x752",
+    "productionArtifactParity": "PASS",
+    "releaseCronCleanup": "PASS"
+  },
+  "knownNonBlockingIssues": [
+    "Physical front/rear camera switching was not exercised on real iOS or Android hardware.",
+    "Backend Excel export dependencies retain two Moderate UUID advisories with no reachable vulnerable buffer API in the current flow.",
+    "Four pre-existing React Fast Refresh lint warnings remain."
+  ],
+  "artifacts": [
+    "frontend/dist",
+    "docs/11-deployment.md",
+    "docs/12-final-review.md",
+    "project-integrity-manifest.md"
+  ]
+}
