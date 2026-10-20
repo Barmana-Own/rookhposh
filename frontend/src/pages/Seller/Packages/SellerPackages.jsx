@@ -1,6 +1,7 @@
 import { CheckCircleIcon, Coins, StarIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import PaymentModal from '../../../components/payments/PaymentModal.jsx';
+import { redirectToGateway } from '../../../utils/payment.js';
 import SellerPageHeader from '../../../components/seller/SellerPageHeader';
 import SellerToast from '../../../components/seller/SellerToast';
 import EmptyState from '../../../components/ui/EmptyState.jsx';
@@ -75,6 +76,7 @@ export default function SellerPackages() {
           ? await sellerApi.purchasePackage(payment.item.id, payload)
           : await sellerApi.purchaseTokens(Number(onlyDigits(tokenQuantity) || 0), payload);
 
+      if (redirectToGateway(result)) return;
       setPayment((current) => ({ ...current, result: { ...result, amount: current.amount }, error: '' }));
       notify(result.status === 'pending' ? 'درخواست پرداخت ثبت شد.' : 'خرید با موفقیت انجام شد.');
     } catch (requestError) {

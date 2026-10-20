@@ -3,6 +3,9 @@ const pool = require('../config/database');
 const { unlimitedProUserMobiles } = require('../config/env');
 const { normalizeContactPhone, normalizeDigits, normalizeMobile, toNumber } = require('../utils/number');
 const { isLegacyStoreSlug, slugifyStoreName } = require('../utils/storeSlug');
+const paymentService = require('../services/paymentService');
+const { amountInRials } = require('../integrations/omidpay');
+const ApiError = require('../utils/apiError');
 
 const safeUser = (user) => {
   if (!user) return null;
@@ -1011,7 +1014,10 @@ async function listTransactions(filters = {}) {
 }
 
 function normalizePaymentMethod(method) {
-  return ['wallet', 'bank_transfer', 'direct_gateway'].includes(method) ? method : 'wallet';
+  if (!['wallet', 'bank_transfer', 'direct_gateway'].includes(method)) {
+    throw new ApiError(400, 'روش پرداخت معتبر نیست.');
+  }
+  return method;
 }
 
 async function createPendingPayment(userId, amount, transaction) {
@@ -1029,36 +1035,20 @@ async function createPendingPayment(userId, amount, transaction) {
       normalizedAmount,
       'pending',
       transaction.description,
-      JSON.stringify(transaction.metadata || {}),
+      JSON.stringify({ ...transaction.metadata, source: 'bank_transfer' }),
     ],
   );
   return result.insertId;
 }
 
-async function createGatewayPayment(userId, amount, transaction) {
-  const normalizedAmount = toNumber(amount);
-  const [result] = await pool.query(
-    `INSERT INTO transactions(
-      user_id,seller_id,product_id,package_id,type,amount,status,description,metadata
-    ) VALUES(?,?,?,?,?,?,?,?,?)`,
-    [
-      userId,
-      transaction.seller_id || null,
-      transaction.product_id || null,
-      transaction.package_id || null,
-      transaction.type,
-      normalizedAmount,
-      'success',
-      transaction.description,
-      JSON.stringify(transaction.metadata || {}),
-    ],
-  );
-  return result.insertId;
+async function createGatewayPayment(userId, amount, transaction, requestKey) {
+  return paymentService.create(userId, amount, transaction, requestKey);
 }
 
 async function chargeWallet(userId, amount, description = 'شارژ حساب', payload = {}) {
-  const normalizedAmount = toNumber(amount);
+  const normalizedAmount = amountInRials(amount) / 10;
   const paymentMethod = normalizePaymentMethod(payload.payment_method || 'direct_gateway');
+  if (paymentMethod === 'wallet') throw new ApiError(400, 'کیف پول را نمی‌توان از موجودی خودش شارژ کرد.');
 
   if (paymentMethod === 'bank_transfer') {
     const transactionId = await createPendingPayment(userId, amount, {
@@ -1078,23 +1068,9 @@ async function chargeWallet(userId, amount, description = 'شارژ حساب', p
     };
   }
 
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-    await connection.query('UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?', [normalizedAmount, userId]);
-    const [result] = await connection.query(
-      'INSERT INTO transactions(user_id,type,amount,status,description,metadata) VALUES(?,?,?,?,?,?)',
-      [userId, 'wallet_charge', normalizedAmount, 'success', description, JSON.stringify({ source: paymentMethod })],
-    );
-    const user = await rawUserById(userId, connection);
-    await connection.commit();
-    return { wallet_balance: Number(user.wallet_balance), transaction_id: result.insertId, status: 'success', amount: normalizedAmount };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  return createGatewayPayment(userId, normalizedAmount, {
+    type: 'wallet_charge', description, metadata: { pending_action: 'wallet_charge' },
+  }, payload.request_id);
 }
 
 async function spendWallet(userId, amount, transaction, providedConnection = null) {
@@ -1356,6 +1332,12 @@ async function purchasePackage(userId, packageId, roleType, payload = {}) {
   }
 
   const paymentMethod = normalizePaymentMethod(payload.payment_method || 'wallet');
+  // Free packages remain purchasable from the wallet; a bank payment must be positive.
+  if (Number(pack.price) !== 0 || paymentMethod === 'direct_gateway') amountInRials(pack.price);
+  const duration = Number(pack.duration_days);
+  if (!Number.isSafeInteger(duration) || duration < 1 || duration > 36500) {
+    throw new ApiError(400, 'مدت اعتبار بسته معتبر نیست.');
+  }
   const transaction = {
     seller_id: roleType === 'seller' ? userId : null,
     package_id: pack.id,
@@ -1373,7 +1355,7 @@ async function purchasePackage(userId, packageId, roleType, payload = {}) {
     });
     status = 'pending';
   } else if (paymentMethod === 'direct_gateway') {
-    transactionId = await createGatewayPayment(userId, pack.price, transaction);
+    return createGatewayPayment(userId, pack.price, transaction, payload.request_id);
   } else {
     transactionId = await spendWallet(userId, pack.price, transaction);
   }
@@ -1397,15 +1379,18 @@ async function purchasePackage(userId, packageId, roleType, payload = {}) {
 
 async function purchaseTokens(userId, roleType, payload = {}) {
   const tokenPrice = Number(await getSetting('token_price', 25000) || 25000);
-  const quantity = toNumber(payload.quantity || 0);
+  const quantity = Number(payload.quantity);
 
-  if (!quantity || quantity < 1) {
+  if (!['number', 'string'].includes(typeof payload.quantity) || !/^\d+$/.test(String(payload.quantity))
+      || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100000) {
     const error = new Error('token quantity invalid');
     error.status = 400;
     throw error;
   }
 
   const total = quantity * tokenPrice;
+  if (!Number.isSafeInteger(tokenPrice) || tokenPrice < 1) throw new ApiError(400, 'قیمت توکن معتبر نیست.');
+  amountInRials(total);
   const paymentMethod = normalizePaymentMethod(payload.payment_method || 'wallet');
   const transaction = {
     seller_id: roleType === 'seller' ? userId : null,
@@ -1429,7 +1414,7 @@ async function purchaseTokens(userId, roleType, payload = {}) {
     });
     status = 'pending';
   } else if (paymentMethod === 'direct_gateway') {
-    transactionId = await createGatewayPayment(userId, total, transaction);
+    return createGatewayPayment(userId, total, transaction, payload.request_id);
   } else {
     transactionId = await spendWallet(userId, total, transaction);
   }
@@ -1456,14 +1441,18 @@ async function listPendingPayments({ page, limit, includeMeta = false } = {}) {
        u.fullname AS user_name, u.email AS user_email, u.mobile AS user_mobile, u.role AS user_role
      FROM transactions t
      JOIN users u ON u.id=t.user_id
-     WHERE t.status='pending'
+     WHERE t.status='pending' AND (
+       JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.source'))='bank_transfer'
+       OR JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.payment_method'))='bank_transfer')
      ORDER BY t.id DESC
      LIMIT ? OFFSET ?`,
     [pagination.limit, pagination.offset],
   );
   const items = rows.map((row) => ({ ...row, metadata: parseJson(row.metadata, {}) }));
   if (!includeMeta) return items;
-  const [[count]] = await pool.query('SELECT COUNT(*) AS total FROM transactions WHERE status="pending"');
+  const [[count]] = await pool.query(`SELECT COUNT(*) AS total FROM transactions WHERE status='pending'
+    AND (JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.source'))='bank_transfer'
+      OR JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.payment_method'))='bank_transfer')`);
   return { items, pagination: paginationMeta(pagination.page, pagination.limit, count.total) };
 }
 
@@ -1479,6 +1468,9 @@ async function approvePendingPayment(id) {
     }
 
     const metadata = parseJson(transaction.metadata, {});
+    if (metadata.source !== 'bank_transfer' && metadata.payment_method !== 'bank_transfer') {
+      throw new ApiError(409, 'پرداخت درگاه فقط توسط بانک تأیید می‌شود.');
+    }
     if (transaction.type === 'wallet_charge') {
       await connection.query('UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?', [Number(transaction.amount), transaction.user_id]);
     }
@@ -1510,7 +1502,9 @@ async function approvePendingPayment(id) {
 }
 
 async function rejectPendingPayment(id, reason = 'رسید پرداخت تایید نشد.') {
-  const [result] = await pool.query('UPDATE transactions SET status="failed", metadata=JSON_SET(COALESCE(metadata, JSON_OBJECT()), "$.reject_reason", ?) WHERE id=? AND status="pending"', [reason, id]);
+  const [result] = await pool.query(`UPDATE transactions SET status='failed', metadata=JSON_SET(COALESCE(metadata, JSON_OBJECT()), '$.reject_reason', ?)
+    WHERE id=? AND status='pending' AND (JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.source'))='bank_transfer'
+      OR JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.payment_method'))='bank_transfer')`, [reason, id]);
   if (!result.affectedRows) {
     const error = new Error('pending payment not found');
     error.status = 404;

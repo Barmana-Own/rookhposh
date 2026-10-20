@@ -134,7 +134,7 @@ export const sellerApi = {
       amount: Number(amount),
       description: 'شارژ کیف پول فروشگاه',
       ...payload,
-    });
+    }, { timeout: 20000 });
     return response.data.data;
   },
 
@@ -174,12 +174,12 @@ export const sellerApi = {
   },
 
   async purchasePackage(id, payload = {}) {
-    const response = await apiClient.post(`/api/seller/packages/${id}/purchase`, payload);
+    const response = await apiClient.post(`/api/seller/packages/${id}/purchase`, payload, { timeout: 20000 });
     return response.data.data;
   },
 
   async purchaseTokens(quantity, payload = {}) {
-    const response = await apiClient.post('/api/seller/tokens/purchase', { quantity, ...payload });
+    const response = await apiClient.post('/api/seller/tokens/purchase', { quantity, ...payload }, { timeout: 20000 });
     return response.data.data;
   },
 

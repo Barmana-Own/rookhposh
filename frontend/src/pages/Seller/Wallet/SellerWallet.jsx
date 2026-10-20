@@ -6,6 +6,7 @@ import SellerTable from '../../../components/seller/SellerTable.jsx';
 import SellerToast from '../../../components/seller/SellerToast.jsx';
 import { useAsyncResource } from '../../../hooks/useAsyncResource';
 import { sellerApi } from '../../../services/seller/sellerApi';
+import { redirectToGateway } from '../../../utils/payment.js';
 import { formatMoney, formatNumberInput, moneyInWords, onlyDigits } from '../../../utils/formatters';
 
 export default function SellerWallet() {
@@ -25,6 +26,7 @@ export default function SellerWallet() {
   const submitPayment = async (payload) => {
     try {
       const result = await sellerApi.chargeWallet(numericAmount, payload);
+      if (redirectToGateway(result)) return;
       setPayment({ open: true, result: { ...result, amount: numericAmount }, error: '' });
       setRefreshKey((key) => key + 1);
       notify(result.status === 'pending' ? 'درخواست شارژ کیف پول ثبت شد.' : 'کیف پول فروشگاه شارژ شد.');
@@ -81,6 +83,7 @@ export default function SellerWallet() {
 
       <PaymentModal
         open={payment.open}
+        allowWallet={false}
         amount={numericAmount}
         title="جزئیات پرداخت شارژ کیف پول"
         description="روش پرداخت فروشگاه را انتخاب کنید و رسید را دریافت کنید."

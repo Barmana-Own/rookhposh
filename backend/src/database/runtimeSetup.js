@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const paymentSchema = require('./paymentSchema');
 const { unlimitedProUserMobiles } = require('../config/env');
 const { normalizeMobile } = require('../utils/number');
 const { isLegacyStoreSlug, slugifyStoreName } = require('../utils/storeSlug');
@@ -110,6 +111,9 @@ async function ensureRuntimeSchema() {
   for (const statement of statements) {
     await runMigration(statement);
   }
+
+  // Payment storage must be present; never swallow a failed payment migration.
+  await pool.query(paymentSchema);
 
   await markConfiguredUnlimitedUsers();
   await migrateLegacyStoreSlugs();

@@ -87,6 +87,7 @@ export default function PaymentModal({
   result,
   error,
   bankInfo,
+  allowWallet = true,
   onSubmit,
   onClose,
 }) {
@@ -131,6 +132,7 @@ export default function PaymentModal({
               title={title}
               description={description}
               bankInfo={bankInfo}
+              allowWallet={allowWallet}
               onSubmit={onSubmit}
             />
           )}

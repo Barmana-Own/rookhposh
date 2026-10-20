@@ -1,0 +1,21 @@
+module.exports = `CREATE TABLE IF NOT EXISTS gateway_payments (
+  id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+  transaction_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  user_id BIGINT UNSIGNED NOT NULL,
+  request_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  request_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  order_id VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+  amount_rial BIGINT UNSIGNED NOT NULL,
+  token VARCHAR(256) CHARACTER SET ascii COLLATE ascii_bin NULL UNIQUE,
+  bank_reference VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL UNIQUE,
+  state ENUM('created','pending','verifying','verified','success','failed') NOT NULL DEFAULT 'created',
+  lock_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  locked_at DATETIME(3) NULL,
+  bank_verified_at DATETIME(3) NULL,
+  last_error VARCHAR(80) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_gateway_payments_transaction FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+  UNIQUE KEY uk_gateway_payments_request (user_id, request_key),
+  INDEX idx_gateway_payments_state_created (state, created_at)
+) ENGINE=InnoDB`;

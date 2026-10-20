@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout.jsx';
 import SkeletonGrid from '../components/ui/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import UserAreaDisabled from '../pages/User/UserAreaDisabled.jsx';
 
 const Dashboard = lazy(() => import('../pages/Dashboard/Dashboard.jsx'));
 const Products = lazy(() => import('../pages/Products/Products.jsx'));
@@ -38,6 +39,7 @@ const SellerAuth = lazy(() => import('../pages/SellerAuth.jsx'));
 const ErrorPage = lazy(() => import('../pages/ErrorPage.jsx'));
 const PublicStore = lazy(() => import('../pages/PublicStore.jsx'));
 const PublicProduct = lazy(() => import('../pages/PublicProduct.jsx'));
+const PaymentResult = lazy(() => import('../pages/PaymentResult.jsx'));
 
 function nextPathFor(user) {
   if (!user) return '/login';
@@ -58,6 +60,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/payments/result/:id" element={<PaymentResult />} />
         <Route path="/admin/v2/login" element={<AdminLogin />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/v2" element={<Navigate to="/admin" replace />} />
@@ -90,7 +93,8 @@ export default function App() {
           <Route path="/seller/store" element={<SellerStore />} />
         </Route>
 
-        <Route element={<AppLayout role="User" />}>
+        {/* Keep the user pages registered for later reactivation, but do not render their outlet. */}
+        <Route element={<UserAreaDisabled />}>
           <Route path="/user" element={<UserDashboard />} />
           <Route path="/user/wallet" element={<UserWallet />} />
           <Route path="/user/packages" element={<UserPackages />} />
@@ -100,6 +104,7 @@ export default function App() {
           <Route path="/user/tickets/:ticketId" element={<TicketConversation />} />
           <Route path="/user/profile" element={<UserProfile />} />
           <Route path="/user/notifications" element={<UserNotifications />} />
+          <Route path="/user/*" element={<UserAreaDisabled />} />
         </Route>
 
         <Route path="*" element={<ErrorPage />} />

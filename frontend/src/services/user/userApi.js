@@ -80,7 +80,7 @@ export const userApi = {
       amount: Number(amount),
       description: 'شارژ حساب از پنل کاربر',
       ...payload,
-    });
+    }, { timeout: 20000 });
     return response.data.data;
   },
 
@@ -116,12 +116,12 @@ export const userApi = {
   },
 
   async purchasePackage(id, payload = {}) {
-    const response = await apiClient.post(`/api/user/packages/${id}/purchase`, payload);
+    const response = await apiClient.post(`/api/user/packages/${id}/purchase`, payload, { timeout: 20000 });
     return response.data.data;
   },
 
   async purchaseTokens(quantity, payload = {}) {
-    const response = await apiClient.post('/api/user/tokens/purchase', { quantity, ...payload });
+    const response = await apiClient.post('/api/user/tokens/purchase', { quantity, ...payload }, { timeout: 20000 });
     return response.data.data;
   },
 

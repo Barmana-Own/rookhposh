@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, CreditCard, Landmark, Lock, ReceiptText, Wallet } from 'lucide-react';
+import { CreditCard, Landmark, ReceiptText, Wallet } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
 import { Button } from './button.jsx';
 import { Card } from './card.jsx';
-import { Input } from './input.jsx';
-import { Label } from './label.jsx';
 import FileDropzone from './FileDropzone.jsx';
 import { formatMoney, moneyInWords } from '../../utils/formatters.js';
 
@@ -29,13 +27,14 @@ export default function GlassCheckoutCard({
   title = 'جزئیات پرداخت',
   description = 'پرداخت خود را با یکی از روش‌های زیر کامل کنید.',
   bankInfo,
+  allowWallet = true,
   onSubmit,
   submitLabel,
   className,
 }) {
-  const [paymentMethod, setPaymentMethod] = useState('wallet');
+  const [paymentMethod, setPaymentMethod] = useState(allowWallet ? 'wallet' : 'direct_gateway');
   const [receipt, setReceipt] = useState(null);
-  const [form, setForm] = useState({ cardNumber: '', expiry: '', cvc: '', cardHolder: '' });
+  const [requestId] = useState(() => crypto.randomUUID());
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
@@ -44,7 +43,7 @@ export default function GlassCheckoutCard({
       await onSubmit?.({
         payment_method: paymentMethod,
         receipt,
-        gateway_payload: form,
+        request_id: requestId,
       });
     } finally {
       setLoading(false);
@@ -66,8 +65,8 @@ export default function GlassCheckoutCard({
             <p className="mt-2 text-sm leading-7 text-slate-500">{description}</p>
           </div>
 
-          <div className="mb-6 grid grid-cols-3 gap-2">
-            {methods.map((method) => {
+          <div className={cn('mb-6 grid gap-2', allowWallet ? 'grid-cols-3' : 'grid-cols-2')}>
+            {methods.filter((method) => allowWallet || method.value !== 'wallet').map((method) => {
               const Icon = method.icon;
               return (
                 <button
@@ -87,60 +86,8 @@ export default function GlassCheckoutCard({
           </div>
 
           {paymentMethod === 'direct_gateway' ? (
-            <div className="space-y-4 text-right" dir="rtl">
-              <div className="space-y-2">
-                <Label htmlFor="cardNumber">شماره کارت</Label>
-                <div className="relative">
-                  <Input
-                    id="cardNumber"
-                    dir="ltr"
-                    placeholder="0000 0000 0000 0000"
-                    className="pl-10"
-                    value={form.cardNumber}
-                    onChange={(event) => setForm((current) => ({ ...current, cardNumber: event.target.value }))}
-                  />
-                  <CreditCard className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="expiry">تاریخ انقضا</Label>
-                  <div className="relative">
-                    <Input
-                      id="expiry"
-                      dir="ltr"
-                      placeholder="MM/YY"
-                      className="pl-10"
-                      value={form.expiry}
-                      onChange={(event) => setForm((current) => ({ ...current, expiry: event.target.value }))}
-                    />
-                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cvc">رمز پویا / CVV</Label>
-                  <div className="relative">
-                    <Input
-                      id="cvc"
-                      dir="ltr"
-                      placeholder="123"
-                      className="pl-10"
-                      value={form.cvc}
-                      onChange={(event) => setForm((current) => ({ ...current, cvc: event.target.value }))}
-                    />
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cardHolder">نام دارنده کارت</Label>
-                <Input
-                  id="cardHolder"
-                  placeholder="نام و نام خانوادگی"
-                  value={form.cardHolder}
-                  onChange={(event) => setForm((current) => ({ ...current, cardHolder: event.target.value }))}
-                />
-              </div>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
+              برای پرداخت به صفحه امن امیدپی در شاپرک منتقل می‌شوید. اطلاعات کارت را فقط در همان صفحه وارد کنید.
             </div>
           ) : null}
 

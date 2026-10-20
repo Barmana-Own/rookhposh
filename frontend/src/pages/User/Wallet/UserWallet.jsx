@@ -9,6 +9,7 @@ import UserToast from '../../../components/user/UserToast';
 import { useUser } from '../../../contexts/UserContext';
 import { useAsyncResource } from '../../../hooks/useAsyncResource';
 import { userApi } from '../../../services/user/userApi';
+import { redirectToGateway } from '../../../utils/payment.js';
 import { formatMoney, formatNumberInput, moneyInWords, onlyDigits } from '../../../utils/formatters';
 
 export default function UserWallet() {
@@ -31,6 +32,7 @@ export default function UserWallet() {
   const charge = async (payload) => {
     try {
       const result = await userApi.chargeWallet(numericAmount, payload);
+      if (redirectToGateway(result)) return;
       setPayment({ open: true, result: { ...result, amount: numericAmount }, error: '' });
       setRefreshKey((key) => key + 1);
       showToast(result.status === 'pending' ? 'درخواست شارژ کیف پول ثبت شد.' : 'شارژ حساب با موفقیت ثبت شد.');
@@ -90,6 +92,7 @@ export default function UserWallet() {
 
       <PaymentModal
         open={payment.open}
+        allowWallet={false}
         amount={numericAmount}
         title="جزئیات پرداخت شارژ کیف پول"
         description="روش پرداخت را انتخاب کنید و بعد از ثبت، رسید دریافت کنید."

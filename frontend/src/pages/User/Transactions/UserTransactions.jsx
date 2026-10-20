@@ -1,5 +1,6 @@
 import { Download, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import UserDrawer from '../../../components/user/UserDrawer';
 import UserModal from '../../../components/user/UserModal';
 import UserPageHeader from '../../../components/user/UserPageHeader';
@@ -91,6 +92,9 @@ export default function UserTransactions() {
             <p><b>مبلغ:</b> {transaction.amount}</p>
             <p><b>وضعیت:</b> {transaction.status}</p>
             <p><b>تاریخ:</b> {transaction.date}</p>
+            {/^[a-f0-9]{32}$/.test(transaction.details?.gateway_payment_id || '') ? (
+              <Link className="btn-soft" to={`/payments/result/${transaction.details.gateway_payment_id}`}>پیگیری پرداخت درگاه</Link>
+            ) : null}
             {transaction.details?.product_title ? <p><b>محصول:</b> {transaction.details.product_title}</p> : null}
             {transaction.details?.seller_name ? <p><b>فروشگاه:</b> {transaction.details.seller_name}</p> : null}
             {transaction.details?.store_name ? <p><b>فروشگاه:</b> {transaction.details.store_name}</p> : null}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import SellerDrawer from '../../../components/seller/SellerDrawer';
 import SellerPageHeader from '../../../components/seller/SellerPageHeader';
 import SellerTable from '../../../components/seller/SellerTable';
@@ -47,6 +48,9 @@ export default function SellerTransactions() {
             <p><b>مبلغ:</b> {transaction.amount}</p>
             <p><b>وضعیت:</b> {transaction.status}</p>
             <p><b>تاریخ:</b> {transaction.date}</p>
+            {/^[a-f0-9]{32}$/.test(transaction.details?.gateway_payment_id || '') ? (
+              <Link className="btn-soft" to={`/payments/result/${transaction.details.gateway_payment_id}`}>پیگیری پرداخت درگاه</Link>
+            ) : null}
             {transaction.details?.buyer_fullname ? <p><b>نام خریدار:</b> {transaction.details.buyer_fullname}</p> : null}
             {transaction.details?.buyer_mobile ? <p><b>شماره تماس:</b> {transaction.details.buyer_mobile}</p> : null}
             {transaction.details?.product_title ? <p><b>محصول:</b> {transaction.details.product_title}</p> : null}

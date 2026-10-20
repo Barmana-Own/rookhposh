@@ -1,0 +1,38 @@
+# Omidpay integration
+
+The backend uses Omidpay's `generateTokenWithNoSign`, `inquiryMerchantToken` and `verifyMerchantTrans` REST services over HTTPS. The frontend submits a token to `https://omid.shaparak.ir/_ipgw_/merchant/token`; card details are entered exclusively on Shaparak.
+
+Official references: [documents](https://omidpayment.ir/about-omidpay/documents), [current integration manual](https://omidpayment.ir/documents/ipg-manual-document.pdf), [extended REST manual](https://omidpayment.ir/documents/ipg-manual-document-2.pdf).
+
+## Configuration and deployment
+
+Set `OMIDPAY_ENABLED`, `OMIDPAY_TERMINAL_ID`, `OMIDPAY_USER_ID`, `OMIDPAY_MERCHANT_ID`, `OMIDPAY_PASSWORD`, `OMIDPAY_CALLBACK_BASE_URL` and `FRONTEND_URL` only in the backend environment. The variable names and safe defaults are in `backend/.env.example`. No real credentials belong in Git, frontend variables, deployment archives or logs. Confirm user and merchant IDs with the issuer; these are separate settings even where their values coincide with the terminal ID. Production startup with payments enabled requires a private `JWT_SECRET` of at least 32 characters; the repository's development fallback is rejected.
+
+The callback base must be `https://<public-api-host>/api/payments/omidpay/callback`. Each payment appends an unpredictable ID. Register the callback origin/path and the backend's outgoing public IP with Omidpay where required by the issuer. `FRONTEND_URL` must point to the deployed frontend. The backend rejects insecure callback/result URLs in production.
+
+1. Back up the database and deploy the backend with its configured environment. Startup creates the additive `gateway_payments` table; migration failures stop startup. Existing transactions and balances are retained. Do not run the seeded development database setup against production.
+2. Route `/api/payments/*` to the backend, preserving POST bodies. The bank callback accepts URL-encoded POST data and redirects with HTTP 303 to `/payments/result/:id`. Exclude callback query strings from reverse-proxy access logs, as the bank can include a token there; the application already excludes callbacks from its request logger.
+3. Deploy the matching frontend and preserve SPA fallback for `/payments/result/:id`. If the web server sets CSP, include `https://omid.shaparak.ir` in `form-action` along with `'self'`. Do not relax other directives.
+4. Verify connectivity from the deployed server, then complete an authorized small real payment and compare the rial amount, bank reference, transaction, and resulting balance or subscription. Repeat the callback and verify there is no duplicate fulfillment. Local mocked tests do not replace this acceptance test.
+
+## Payment behavior and recovery
+
+Prices and balances are in toman. The backend converts positive integral amounts to rials once, and independently checks the bank's amount both on inquiry and final verification. Package prices and token prices come from the database. Wallet charging cannot use the wallet itself.
+
+Starting a gateway payment records a pending transaction and a separate attempt atomically. The checkout sends a stable `request_id` for retries; `(user_id, request_key)` is unique and a purchase hash prevents reuse for a different amount or item. Older clients without that field receive a generated key. No successful transaction, wallet credit or subscription activation occurs during initialization.
+
+The callback's state, reference, merchant ID and amount never establish payment success. The backend inquires using its saved token and verifies the reference and amount obtained from the bank. A per-payment database lease prevents parallel verification. Bank confirmation is durably recorded before fulfillment. Fulfillment locks the payment and transaction rows and atomically records the wallet credit or subscription, transaction success, payment success and notification. A completed callback can be replayed safely. Manual receipt approval/rejection excludes gateway payments, including existing transfers stored using `payment_method=bank_transfer`.
+
+The authenticated owner can read `GET /api/payments/:id` and retry reconciliation using `POST /api/payments/:id/verify`. Neither endpoint discloses the bank token or credentials. The result page offers a manual retry after an unavailable callback or transient bank failure; transaction details contain a recovery link to that page. There is no recurring polling or background financial job. An abandoned verification lease becomes retryable after one minute; a persisted bank confirmation can finish after a process restart without calling the bank again.
+
+If the bank confirms but the application loses that response before persisting it, leave the transaction pending and reconcile with the issuer's report before making accounting changes. An undocumented 'already verified' response is never treated as success. Failures or cancellation without authenticated bank confirmation never credit the account. Operational logs contain only the payment correlation ID and a controlled error code.
+
+Rollback may retain the additive table for audit. Disable gateway payments with `OMIDPAY_ENABLED=false`; never restore the old simulated gateway implementation, which marked payments successful without bank verification.
+
+The `/user` area remains disabled. Seller checkout works through the existing wallet, package and token purchase entrypoints. This change preserves existing token entitlements/accounting behavior; it does not introduce a separate token balance system.
+
+## Verification limitations
+
+The payment tests exercise the bank protocol with mocked responses, ownership checks, duplicate requests/callbacks, transient failures and transactional rollback. Browser smoke checks intercept bank navigation; they do not perform a real charge. A real MySQL migration/settlement test still requires an available database. The bank authentication connectivity check from the local workstation timed out, so the issuer has not validated the supplied credentials in this environment.
+
+The existing responsive-layout test fails on missing shared CSS guards; it predates the payment changes. Dependency review updates only the payment HTTP client (`axios` to 1.20.0) and Express's request-address dependency (`proxy-addr` to 2.0.8). Existing audit findings in other dependencies remain outside this integration; this is not a claim that the entire repository has a clean dependency audit.
