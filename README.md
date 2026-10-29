@@ -24,3 +24,5 @@ npm audit --prefix backend --omit=dev --audit-level=high
 - Virtual try-on provider proxy: `/pro-api`
 
 Production secrets remain only in the server environment and are not part of the frontend or deployment archives.
+
+See [the current Ubuntu deployment guide](docs/production.md) for the source-based build, Nginx configuration, and Kavenegar web-push setup.
