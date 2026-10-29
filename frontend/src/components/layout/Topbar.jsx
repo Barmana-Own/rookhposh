@@ -5,13 +5,11 @@ import { useAuth } from '../../contexts/AuthContext.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import apiClient from '../../services/apiClient.js';
 import { sellerApi } from '../../services/seller/sellerApi.js';
-import { userApi } from '../../services/user/userApi.js';
 import { toPersianMessage } from '../../utils/errorMessages.js';
 
 const roleRoutes = {
   Admin: { search: '/admin/products', profile: '/admin/users' },
   Seller: { search: '/seller/products', profile: '/seller/store' },
-  User: { search: '/user/services', profile: '/user/profile' },
 };
 
 function formatDate(value) {
@@ -31,13 +29,13 @@ async function loadNotifications(role) {
     return response.data.data.map(normalize);
   }
   if (role === 'Seller') return (await sellerApi.getNotifications()).map(normalize);
-  return (await userApi.getNotifications()).map(normalize);
+  return [];
 }
 
 async function readNotifications(role) {
   if (role === 'Admin') return apiClient.post('/api/admin/notifications/read');
   if (role === 'Seller') return sellerApi.readNotifications();
-  return userApi.readNotifications();
+  return undefined;
 }
 
 export default function Topbar({ onMenuClick }) {
@@ -50,7 +48,7 @@ export default function Topbar({ onMenuClick }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const routes = roleRoutes[user?.role] || roleRoutes.User;
+  const routes = roleRoutes[user?.role] || roleRoutes.Seller;
 
   useEffect(() => {
     const close = (event) => {
@@ -103,9 +101,10 @@ export default function Topbar({ onMenuClick }) {
   };
 
   const exit = () => {
+    const loginPath = user?.role === 'Admin' ? '/admin/login' : '/seller';
     setProfileOpen(false);
     logout();
-    navigate('/login', { replace: true });
+    navigate(loginPath, { replace: true });
   };
 
   const toggleNotifications = async () => {

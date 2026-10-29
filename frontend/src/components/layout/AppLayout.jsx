@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext.jsx';
 import ErrorBoundary from '../ui/ErrorBoundary.jsx';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
+import { accountHome } from '../../utils/authNavigation.js';
 
 const titles = {
   '/admin': 'داشبورد مدیریت',
@@ -21,14 +22,6 @@ const titles = {
   '/seller/packages': 'خرید پکیج',
   '/seller/tickets': 'تیکت سرویس',
   '/seller/store': 'صفحه فروشگاه',
-  '/user': 'داشبورد کاربر',
-  '/user/wallet': 'شارژ حساب و کیف پول',
-  '/user/packages': 'خرید پکیج',
-  '/user/services': 'سرویس‌ها و محصولات',
-  '/user/transactions': 'تراکنش‌ها',
-  '/user/tickets': 'تیکت سرویس',
-  '/user/profile': 'پروفایل',
-  '/user/notifications': 'اعلان‌ها',
 };
 
 export default function AppLayout({ role }) {
@@ -46,11 +39,11 @@ export default function AppLayout({ role }) {
   }
 
   if (!user) {
-    const loginPath = role === 'Admin' ? '/admin/v2/login' : '/login';
+    const loginPath = role === 'Admin' ? '/admin/v2/login' : '/seller';
     return <Navigate to={`${loginPath}?next=${encodeURIComponent(location.pathname)}`} replace />;
   }
   if (role && user.role !== role) {
-    return <Navigate to={user.role === 'Admin' ? '/admin' : user.role === 'Seller' ? '/seller/dashboard' : '/user'} replace />;
+    return <Navigate to={accountHome(user)} replace />;
   }
   if (user.role === 'Seller' && String(user.seller_verification_status || '').toLowerCase() !== 'approved') {
     return <Navigate to="/seller/status" replace />;

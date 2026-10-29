@@ -2,6 +2,7 @@ import { Clock3, LogOut, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import { accountHome } from '../../utils/authNavigation.js';
 
 export default function PendingSeller() {
   const { user, logout, refreshUser } = useAuth();
@@ -23,8 +24,7 @@ export default function PendingSeller() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role, user?.seller_verification_status]);
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== 'Seller') return <Navigate to={user.role === 'Admin' ? '/admin' : '/user'} replace />;
+  if (!user || user.role !== 'Seller') return <Navigate to={accountHome(user)} replace />;
   if (String(user.seller_verification_status || '').toLowerCase() === 'approved') return <Navigate to="/seller/dashboard" replace />;
 
   const rejected = String(user.seller_verification_status || '').toLowerCase() === 'rejected';

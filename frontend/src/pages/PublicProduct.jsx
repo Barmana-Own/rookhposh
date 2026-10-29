@@ -1,10 +1,8 @@
 import { Camera, CheckCircle2, Download, ImagePlus, LogIn, RefreshCw, Sparkles, Store, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext.jsx';
 import apiClient from '../services/apiClient.js';
 import { publicApi } from '../services/publicApi.js';
-import { userApi } from '../services/user/userApi.js';
 import TryOnNotice from '../components/ui/TryOnNotice.jsx';
 import { compressImageFile } from '../utils/file.js';
 import { getProductImage, getProductImages } from '../utils/productImage.js';
@@ -129,7 +127,6 @@ function RearCameraPoseGuide() {
 
 export default function PublicProduct() {
   const { slug, productId } = useParams();
-  const { user } = useAuth();
   const cameraVideoRef = useRef(null);
   const cameraStreamRef = useRef(null);
   const cameraFacingModeRef = useRef('user');
@@ -195,11 +192,8 @@ export default function PublicProduct() {
     if (!product?.id) return undefined;
 
     let mounted = true;
-    const quotaRequest = user ? userApi.getProQuota(product.id) : publicApi.getProQuota(slug, product.id);
-    const historyRequest = (user
-      ? userApi.getServices().then((services) => (services.services || []).filter((item) => Number(item.productId) === Number(product.id)))
-      : publicApi.getProHistory(slug, product.id)
-    ).then((items) => Promise.all(items.map(async (item) => ({
+    const quotaRequest = publicApi.getProQuota(slug, product.id);
+    const historyRequest = publicApi.getProHistory(slug, product.id).then((items) => Promise.all(items.map(async (item) => ({
       ...item,
       outputImage: await normalizeProOutput(item.outputImage),
     }))));
@@ -216,7 +210,7 @@ export default function PublicProduct() {
     return () => {
       mounted = false;
     };
-  }, [slug, user, product?.id]);
+  }, [slug, product?.id]);
 
   const selectImage = async (file) => {
     if (!file || (file.type && !file.type.startsWith('image/'))) {
@@ -347,14 +341,12 @@ export default function PublicProduct() {
     setSaving(true);
     setError('');
     try {
-      const currentQuota = user ? await userApi.getProQuota(product.id) : await publicApi.getProQuota(slug, product.id);
+      const currentQuota = await publicApi.getProQuota(slug, product.id);
       setQuota(currentQuota);
       if (!currentQuota.has_subscription && !currentQuota.has_unlimited_access && currentQuota.free_remaining <= 0) {
-        throw new Error('سه تجربه رایگان شما تمام شده است. برای ادامه اشتراک بخرید.');
+        throw new Error('سهمیه رایگان پرو آنلاین شما تمام شده است.');
       }
-      const uploadedImage = user
-        ? await userApi.uploadProImage(product.id, { image: userImage, file_name: fileName || 'person.jpg' })
-        : await publicApi.uploadProImage(slug, product.id, { image: userImage, file_name: fileName || 'person.jpg' });
+      const uploadedImage = await publicApi.uploadProImage(slug, product.id, { image: userImage, file_name: fileName || 'person.jpg' });
       if (!uploadedImage?.id) throw new Error('ذخیره تصویر شما روی سرور ناموفق بود.');
       const clothFile = await imageSourceToFile(productImage, `product-${product.id}.jpg`);
       if (!clothFile) throw new Error('برای این محصول تصویر ثبت نشده است.');
@@ -368,8 +360,7 @@ export default function PublicProduct() {
         body: formData,
       });
       const providerOutput = await readProResponse(providerResponse);
-      const result = await (user
-        ? userApi.useProService({
+      const result = await publicApi.usePro(slug, product.id, {
           product_id: product.id,
           amount: 0,
           input_image: userImage,
@@ -377,16 +368,7 @@ export default function PublicProduct() {
           product_image: productImage,
           output_image: providerOutput,
           description: `پرو آنلاین برای محصول «${product.title}»`,
-        })
-        : publicApi.usePro(slug, product.id, {
-          product_id: product.id,
-          amount: 0,
-          input_image: userImage,
-          upload_id: uploadedImage.id,
-          product_image: productImage,
-          output_image: providerOutput,
-          description: `پرو آنلاین برای محصول «${product.title}»`,
-        }));
+        });
       const savedOutput = getProOutputSource(result.output_image || providerOutput);
       setOutput(savedOutput);
       setQuota((current) => ({
@@ -590,10 +572,10 @@ export default function PublicProduct() {
                   {!quota.has_subscription && !quota.has_unlimited_access && quota.free_remaining <= 0 ? (
                     <Link
                       className="btn-primary"
-                      to={user ? '/user/packages' : `/login?next=${encodeURIComponent(`/stores/${slug}/products/${product.id}`)}&store=${slug}`}
+                      to="/seller"
                     >
                       <LogIn size={16} />
-                      ورود و خرید اشتراک
+                      ورود به پنل فروشندگان
                     </Link>
                   ) : null}
                 </div>

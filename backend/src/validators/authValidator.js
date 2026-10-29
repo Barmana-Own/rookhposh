@@ -24,5 +24,5 @@ exports.registerRules = [
     if (value !== req.body.password) throw new Error('تکرار رمز عبور با رمز عبور یکسان نیست.');
     return true;
   }),
-  body('role').isIn(['Seller', 'User']).withMessage('برای ثبت‌نام فقط نقش کاربر یا فروشگاه مجاز است.'),
+  body('role').isIn(['Seller']).withMessage('ثبت‌نام فقط برای فروشندگان فعال است.'),
 ];

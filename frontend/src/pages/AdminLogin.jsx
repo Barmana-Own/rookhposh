@@ -95,8 +95,8 @@ export default function AdminLogin() {
           {loading ? 'در حال ورود...' : 'ورود به پنل مدیریت'}
         </button>
 
-        <a href="/login" className="mt-5 block text-center text-sm font-bold text-indigo-600">
-          ورود کاربر عادی با شماره موبایل
+        <a href="/seller" className="mt-5 block text-center text-sm font-bold text-indigo-600">
+          ورود فروشندگان با شماره موبایل
         </a>
       </form>
     </main>

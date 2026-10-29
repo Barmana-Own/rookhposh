@@ -7,7 +7,6 @@ function demoUserForPath(path) {
   if (process.env.DEMO_AUTH !== 'true') return null;
   if (path.startsWith('/api/admin')) return { id: 1, role: 'Admin', username: 'admin', fullname: 'مدیر سیستم' };
   if (path.startsWith('/api/seller')) return { id: 2, role: 'Seller', username: 'seller', fullname: 'فروشگاه نمونه', seller_verification_status: 'approved' };
-  if (path.startsWith('/api/user')) return { id: 3, role: 'User', username: 'user', fullname: 'کاربر نمونه' };
   return null;
 }
 
@@ -26,6 +25,9 @@ function authenticate(req, res, next) {
 
   try {
     req.user = jwt.verify(token, jwtSecret);
+    if (!['Admin', 'Seller'].includes(req.user.role)) {
+      return next(new ApiError(403, 'ورود به سامانه فقط از بخش فروشندگان امکان‌پذیر است.'));
+    }
     return next();
   } catch {
     return next(new ApiError(401, 'نشست شما منقضی شده است. دوباره وارد شوید.'));
@@ -40,6 +42,9 @@ async function authorizeApprovedSeller(req, res, next) {
   if (req.user?.role !== 'Seller') return next();
   const currentUser = await db.findUserById(req.user.id);
   if (!currentUser) return next(new ApiError(401, 'حساب کاربری شما پیدا نشد.'));
+  if (currentUser.role !== 'Seller' || currentUser.status === 'blocked') {
+    return next(new ApiError(403, 'حساب فروشگاه شما اجازه دسترسی ندارد.'));
+  }
   if (String(currentUser.seller_verification_status || '').toLowerCase() !== 'approved') {
     return next(new ApiError(403, 'احراز هویت فروشگاه شما هنوز تایید نشده است.'));
   }

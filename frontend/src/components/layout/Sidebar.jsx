@@ -9,9 +9,7 @@ import {
   PackagePlus,
   QrCode,
   ShoppingBag,
-  Sparkles,
   Store,
-  UserCircle,
   Users,
   Wallet,
   X,
@@ -44,18 +42,6 @@ const menuByRole = {
       ['/seller/store', 'صفحه فروشگاه', QrCode],
     ],
   },
-  User: {
-    section: 'کاربر',
-    items: [
-      ['/user', 'داشبورد کاربر', UserCircle],
-      ['/user/wallet', 'کیف پول', Wallet],
-      ['/user/packages', 'خرید پکیج', ShoppingBag],
-      ['/user/services', 'سرویس‌ها و محصولات', Sparkles],
-      ['/user/transactions', 'تراکنش‌ها', CreditCard],
-      ['/user/tickets', 'تیکت‌های پشتیبانی', Headphones],
-      ['/user/profile', 'پروفایل', UserCircle],
-    ],
-  },
 };
 
 function NavItem({ item, onClick }) {
@@ -64,7 +50,7 @@ function NavItem({ item, onClick }) {
   return (
     <NavLink
       to={to}
-      end={to === '/admin' || to === '/seller/dashboard' || to === '/user' || to === '/seller/store'}
+      end={to === '/admin' || to === '/seller/dashboard' || to === '/seller/store'}
       onClick={onClick}
       className={({ isActive }) =>
         `flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-bold transition ${
@@ -83,11 +69,12 @@ function NavItem({ item, onClick }) {
 function SidebarContent({ onClose }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const menu = menuByRole[user?.role || 'User'] || menuByRole.User;
+  const menu = menuByRole[user?.role] || menuByRole.Seller;
   const exit = () => {
+    const loginPath = user?.role === 'Admin' ? '/admin/login' : '/seller';
     logout();
     onClose?.();
-    navigate('/login', { replace: true });
+    navigate(loginPath, { replace: true });
   };
 
   return (

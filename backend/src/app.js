@@ -5,7 +5,6 @@ const morgan = require('morgan');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
-const userRoutes = require('./routes/userRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const storeRoutes = require('./routes/storeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -40,7 +39,6 @@ app.use('/api/admin', (req, res, next) => {
 });
 app.use('/api/admin', adminRoutes);
 app.use('/api/seller', sellerRoutes);
-app.use('/api/user', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/payments', paymentRoutes);

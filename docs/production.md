@@ -39,6 +39,8 @@ Complete the connection check in the authenticated Kavenegar console after insta
 
 ## Temporary OTP mode
 
+The public application is seller-only. `/login` and old `/user/*` bookmarks redirect to seller sign-in; approved sellers enter `/seller/dashboard`, and pending or rejected sellers keep the existing approval screen. Public OTP defaults to `Seller` and rejects other roles. Customer-panel API routes are unmounted, and old `User` JWTs are rejected. Existing customer records and balances are retained for administration, without automatically promoting them or transferring privileges. Public product try-on uses its public store endpoints for every visitor, including signed-in sellers.
+
 At the owner's request, the current site template temporarily allows the existing test-code request and verification endpoints, with POST-only access, a small request-body limit, rate limits, and no-store responses. The frontend displays the returned test code. This mode sends no SMS and does not verify ownership of a phone number. Administrator password login remains separate. Real SMS OTP still requires the private Kavenegar API key and verification template; the web-push app ID does not provide either.
 
 ## Release checks and rollback

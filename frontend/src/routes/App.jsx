@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout.jsx';
 import SkeletonGrid from '../components/ui/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import UserAreaDisabled from '../pages/User/UserAreaDisabled.jsx';
+import { accountHome } from '../utils/authNavigation.js';
 
 const Dashboard = lazy(() => import('../pages/Dashboard/Dashboard.jsx'));
 const Products = lazy(() => import('../pages/Products/Products.jsx'));
@@ -24,15 +24,6 @@ const SellerStore = lazy(() => import('../pages/Seller/Store/SellerStore.jsx'));
 const SellerStoreProfile = lazy(() => import('../pages/Seller/Store/SellerStoreProfile.jsx'));
 const PendingSeller = lazy(() => import('../pages/Seller/PendingSeller.jsx'));
 
-const UserDashboard = lazy(() => import('../pages/User/Dashboard/UserDashboard.jsx'));
-const UserWallet = lazy(() => import('../pages/User/Wallet/UserWallet.jsx'));
-const UserPackages = lazy(() => import('../pages/User/Packages/UserPackages.jsx'));
-const UserServices = lazy(() => import('../pages/User/Services/UserServices.jsx'));
-const UserTransactions = lazy(() => import('../pages/User/Transactions/UserTransactions.jsx'));
-const UserTickets = lazy(() => import('../pages/User/Tickets/UserTickets.jsx'));
-const UserProfile = lazy(() => import('../pages/User/Profile/UserProfile.jsx'));
-const UserNotifications = lazy(() => import('../pages/User/Notifications/UserNotifications.jsx'));
-
 const Login = lazy(() => import('../pages/Login.jsx'));
 const AdminLogin = lazy(() => import('../pages/AdminLogin.jsx'));
 const SellerAuth = lazy(() => import('../pages/SellerAuth.jsx'));
@@ -41,17 +32,10 @@ const PublicStore = lazy(() => import('../pages/PublicStore.jsx'));
 const PublicProduct = lazy(() => import('../pages/PublicProduct.jsx'));
 const PaymentResult = lazy(() => import('../pages/PaymentResult.jsx'));
 
-function nextPathFor(user) {
-  if (!user) return '/login';
-  if (user.role === 'Seller' && String(user.seller_verification_status || '').toLowerCase() !== 'approved') return '/seller/status';
-  return user.role === 'Admin' ? '/admin' : user.role === 'Seller' ? '/seller/dashboard' : '/user';
-}
-
 function HomeRedirect() {
   const { user, loading } = useAuth();
   if (loading) return <SkeletonGrid />;
-  if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to={nextPathFor(user)} replace />;
+  return <Navigate to={accountHome(user)} replace />;
 }
 
 export default function App() {
@@ -93,19 +77,7 @@ export default function App() {
           <Route path="/seller/store" element={<SellerStore />} />
         </Route>
 
-        {/* Keep the user pages registered for later reactivation, but do not render their outlet. */}
-        <Route element={<UserAreaDisabled />}>
-          <Route path="/user" element={<UserDashboard />} />
-          <Route path="/user/wallet" element={<UserWallet />} />
-          <Route path="/user/packages" element={<UserPackages />} />
-          <Route path="/user/services" element={<UserServices />} />
-          <Route path="/user/transactions" element={<UserTransactions />} />
-          <Route path="/user/tickets" element={<UserTickets />} />
-          <Route path="/user/tickets/:ticketId" element={<TicketConversation />} />
-          <Route path="/user/profile" element={<UserProfile />} />
-          <Route path="/user/notifications" element={<UserNotifications />} />
-          <Route path="/user/*" element={<UserAreaDisabled />} />
-        </Route>
+        <Route path="/user/*" element={<Login />} />
 
         <Route path="*" element={<ErrorPage />} />
       </Routes>

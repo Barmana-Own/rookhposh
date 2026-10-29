@@ -1,6 +1,6 @@
 # Rookhposh Dashboard Marketplace
 
-Persian RTL marketplace application with public stores and products, virtual try-on, user and seller dashboards, and a super-admin panel.
+Persian RTL marketplace application with public stores and products, virtual try-on, seller onboarding and dashboards, and a super-admin panel.
 
 ## Applications
 

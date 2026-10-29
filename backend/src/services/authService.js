@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { randomBytes, randomInt } = require('node:crypto');
 const ApiError = require('../utils/apiError');
 const db = require('../repositories/dbStore');
 const { jwtSecret, jwtUserExpiresIn, jwtAdminExpiresIn } = require('../config/env');
@@ -13,14 +14,19 @@ const tokenFor = (user) =>
 
 const otpStore = new Map();
 
-const roleValue = (role = 'User') => (String(role).toLowerCase() === 'seller' ? 'Seller' : 'User');
+function roleValue(role = 'Seller') {
+  if (String(role).trim().toLowerCase() !== 'seller') {
+    throw new ApiError(403, 'ورود و ثبت‌نام فقط برای فروشندگان فعال است.');
+  }
+  return 'Seller';
+}
 const otpKey = (mobile, role) => `${role}:${mobile}`;
 
 function makeOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000));
 }
 
-exports.requestOtp = async ({ mobile, role = 'User', store_slug }) => {
+exports.requestOtp = async ({ mobile, role = 'Seller', store_slug }) => {
   const cleanMobile = normalizeMobile(mobile);
   if (cleanMobile.length < 10) throw new ApiError(400, 'شماره موبایل معتبر نیست.');
   const requestedRole = roleValue(role);
@@ -42,7 +48,7 @@ exports.requestOtp = async ({ mobile, role = 'User', store_slug }) => {
   };
 };
 
-exports.verifyOtp = async ({ mobile, code, role = 'User', fullname, store_name, national_code, store_slug }) => {
+exports.verifyOtp = async ({ mobile, code, role = 'Seller', fullname, store_name, national_code, store_slug }) => {
   const cleanMobile = normalizeMobile(mobile);
   const requestedRole = roleValue(role);
   const cleanCode = normalizeDigits(code).trim();
@@ -51,17 +57,16 @@ exports.verifyOtp = async ({ mobile, code, role = 'User', fullname, store_name, 
     throw new ApiError(401, 'کد تایید معتبر نیست یا منقضی شده است.');
   }
 
-  // A mobile number may have a user account and a seller account. Resolve the
-  // OTP against the requested role so the two entry points never cross over.
+  // Keep legacy customer records separate; seller sign-in never promotes them.
   let user = await db.findUserByMobileAndRole(cleanMobile, requestedRole);
   if (!user) {
     const existingAccount = await db.findUserByUsername(cleanMobile);
     const username = existingAccount ? `${cleanMobile}-${requestedRole.toLowerCase()}` : cleanMobile;
     user = await db.createUser({
-      fullname: fullname || (requestedRole === 'Seller' ? 'فروشگاه جدید' : 'کاربر جدید'),
+      fullname: fullname || 'فروشگاه جدید',
       username,
       mobile: cleanMobile,
-      password: `otp-${cleanMobile}`,
+      password: randomBytes(32).toString('base64url'),
       role: requestedRole,
       store_name: store_name || fullname || 'فروشگاه من',
       national_code: normalizeDigits(national_code || ''),
@@ -79,9 +84,19 @@ exports.verifyOtp = async ({ mobile, code, role = 'User', fullname, store_name, 
 };
 
 exports.register = async (payload) => {
+  const requestedRole = roleValue(payload.role);
   if (await db.findUserByUsername(payload.username)) throw new ApiError(409, 'این نام کاربری یا ایمیل قبلا ثبت شده است.');
   if (payload.email && (await db.findUserByUsername(payload.email))) throw new ApiError(409, 'این نام کاربری یا ایمیل قبلا ثبت شده است.');
-  const user = await db.createUser(payload);
+  const user = await db.createUser({
+    fullname: payload.fullname,
+    username: payload.username,
+    email: payload.email,
+    mobile: payload.mobile,
+    password: payload.password,
+    role: requestedRole,
+    store_name: payload.store_name,
+    national_code: payload.national_code,
+  });
   return { token: tokenFor(user), user };
 };
 
@@ -95,6 +110,12 @@ exports.login = async ({ username, password }) => {
 
   const ok = await db.bcrypt.compare(password, user.password);
   if (!ok) throw new ApiError(401, 'نام کاربری یا رمز عبور اشتباه است.');
+  if (!['Admin', 'Seller'].includes(user.role)) {
+    throw new ApiError(403, 'ورود به سامانه فقط از بخش فروشندگان امکان‌پذیر است.');
+  }
+  if (user.role === 'Seller' && user.mobile && password === `otp-${normalizeMobile(user.mobile)}`) {
+    throw new ApiError(403, 'برای ورود فروشگاه از کد تایید استفاده کنید.');
+  }
 
   const safeUser = db.safeUser(user);
   return { token: tokenFor(safeUser), user: safeUser };

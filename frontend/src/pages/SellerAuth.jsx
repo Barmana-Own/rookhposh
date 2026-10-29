@@ -1,11 +1,14 @@
 import { Building2, IdCard, Phone, ShieldCheck, Store } from 'lucide-react';
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { postLoginPath } from '../utils/authNavigation.js';
 
 export default function SellerAuth() {
   const { user, loading: authLoading, requestOtp, verifyOtp } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get('next');
   const [step, setStep] = useState('mobile');
   const [requiresIdentity, setRequiresIdentity] = useState(true);
   const [form, setForm] = useState({ mobile: '', code: '', fullname: '', store_name: '', national_code: '' });
@@ -17,9 +20,8 @@ export default function SellerAuth() {
     return <main dir="rtl" className="grid min-h-screen place-items-center bg-[#eef2ff] p-4 font-bold text-slate-700">در حال بررسی حساب فروشگاه...</main>;
   }
 
-  if (user?.role === 'Seller') {
-    const approved = String(user.seller_verification_status || '').toLowerCase() === 'approved';
-    return <Navigate to={approved ? '/seller/dashboard' : '/seller/status'} replace />;
+  if (user?.role === 'Seller' || user?.role === 'Admin') {
+    return <Navigate to={postLoginPath(user, next)} replace />;
   }
 
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
@@ -47,8 +49,7 @@ export default function SellerAuth() {
     setLoading(true);
     try {
       const seller = await verifyOtp({ ...form, role: 'Seller' });
-      const approved = String(seller.seller_verification_status || '').toLowerCase() === 'approved';
-      navigate(approved ? '/seller/dashboard' : '/seller/status', { replace: true });
+      navigate(postLoginPath(seller, next), { replace: true });
     } catch (requestError) {
       setError(requestError.message || 'ثبت‌نام فروشگاه انجام نشد.');
     } finally {
@@ -117,7 +118,6 @@ export default function SellerAuth() {
           {loading ? 'در حال بررسی...' : step === 'mobile' ? 'ارسال کد تایید' : requiresIdentity ? 'ثبت احراز هویت فروشگاه' : 'ورود به پنل فروشگاه'}
         </button>
 
-        <a href="/login" className="mt-5 block text-center text-sm font-bold text-indigo-600">ورود کاربران عادی</a>
       </form>
     </main>
   );
