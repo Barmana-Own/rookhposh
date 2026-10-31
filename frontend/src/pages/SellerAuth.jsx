@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { postLoginPath } from '../utils/authNavigation.js';
+import { otpCountdown, otpDeadline } from '../utils/otpCountdown.js';
 
 export default function SellerAuth() {
   const { user, loading: authLoading, requestOtp, verifyOtp } = useAuth();
@@ -12,15 +13,28 @@ export default function SellerAuth() {
   const [step, setStep] = useState('mobile');
   const [requiresIdentity, setRequiresIdentity] = useState(true);
   const [form, setForm] = useState({ mobile: '', code: '', fullname: '', store_name: '', national_code: '' });
-  const [resendIn, setResendIn] = useState(0);
+  const [deadline, setDeadline] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const countdown = otpCountdown(deadline, now);
 
   useEffect(() => {
-    if (resendIn <= 0) return undefined;
-    const timer = setTimeout(() => setResendIn((remaining) => Math.max(0, remaining - 1)), 1000);
-    return () => clearTimeout(timer);
-  }, [resendIn]);
+    if (deadline === null) return undefined;
+    function updateClock() {
+      const currentTime = Date.now();
+      setNow(currentTime);
+      if (currentTime >= deadline) clearInterval(timer);
+    }
+    const timer = setInterval(updateClock, 1000);
+    document.addEventListener('visibilitychange', updateClock);
+    window.addEventListener('focus', updateClock);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', updateClock);
+      window.removeEventListener('focus', updateClock);
+    };
+  }, [deadline]);
 
   if (authLoading) {
     return <main dir="rtl" className="grid min-h-screen place-items-center bg-[#eef2ff] p-4 font-bold text-slate-700">در حال بررسی حساب فروشگاه...</main>;
@@ -39,7 +53,9 @@ export default function SellerAuth() {
     try {
       const result = await requestOtp({ mobile: form.mobile, role: 'Seller' });
       if (result.delivery !== 'sms') throw new Error('پاسخ ارسال پیامک معتبر نیست.');
-      setResendIn(Math.max(0, Math.min(60, Number(result.resend_after) || 0)));
+      const sentAt = Date.now();
+      setDeadline(otpDeadline(result.expires_in, result.resend_after, sentAt));
+      setNow(sentAt);
       setField('code', '');
       const identityRequired = result.requires_identity !== false;
       setRequiresIdentity(identityRequired);
@@ -53,6 +69,10 @@ export default function SellerAuth() {
 
   const verify = async (event) => {
     event.preventDefault();
+    if (otpCountdown(deadline).canResend) {
+      setError('زمان اعتبار کد تمام شده است. لطفاً کد جدید درخواست کنید.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -78,6 +98,9 @@ export default function SellerAuth() {
 
         {error ? <div role="alert" className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">{error}</div> : null}
         {step !== 'mobile' ? <div role="status" className="mb-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">کد برای شما پیامک شد.</div> : null}
+        {step !== 'mobile' ? <p className="mb-4 text-center text-sm font-bold text-slate-600">
+          {countdown.canResend ? 'زمان اعتبار کد تمام شد؛ اگر پیامک را دریافت نکرده‌اید، کد جدید درخواست کنید.' : <>زمان باقی‌ماندهٔ اعتبار کد: <bdi role="timer" aria-live="off" className="tabular-nums">{countdown.label}</bdi></>}
+        </p> : null}
 
         <div className="grid gap-4">
           <label className="block space-y-2">
@@ -122,19 +145,19 @@ export default function SellerAuth() {
           ) : null}
         </div>
 
-        <button className="btn-primary mt-6 w-full justify-center py-3 text-base" disabled={loading}>
+        <button className="btn-primary mt-6 w-full justify-center py-3 text-base" disabled={loading || (step !== 'mobile' && countdown.canResend)}>
           {loading ? 'در حال بررسی...' : step === 'mobile' ? 'ارسال کد تایید' : requiresIdentity ? 'ثبت احراز هویت فروشگاه' : 'ورود به پنل فروشگاه'}
         </button>
 
         {step !== 'mobile' ? <div className="mt-4 flex flex-wrap justify-between gap-3 text-sm font-bold text-indigo-700">
-          <button type="button" onClick={sendCode} disabled={loading || resendIn > 0} className="disabled:opacity-50">
-            {resendIn > 0 ? `ارسال مجدد تا ${resendIn} ثانیه دیگر` : 'ارسال مجدد کد'}
-          </button>
+          {countdown.canResend ? <button type="button" onClick={sendCode} disabled={loading} className="disabled:opacity-50">
+            {loading ? 'در حال ارسال...' : 'ارسال مجدد کد'}
+          </button> : null}
           <button type="button" disabled={loading} onClick={() => {
             setStep('mobile');
             setField('code', '');
             setError('');
-            setResendIn(0);
+            setDeadline(null);
           }}>تغییر شماره موبایل</button>
         </div> : null}
 

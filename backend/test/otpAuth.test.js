@@ -55,9 +55,11 @@ test('HTTP seller OTP never returns a code, preserves authorization, and rejects
   const issued = await request.json();
   assert.equal(issued.data.requires_identity, false);
   assert.equal(issued.data.delivery, 'sms');
+  assert.equal(issued.data.expires_in, 120);
+  assert.equal(issued.data.resend_after, 120);
   assert.equal(issued.data.dev_code, undefined);
   assert.equal(issued.data.code, undefined);
-  assert.equal(JSON.stringify(issued).includes(sent.code), false);
+  assert.deepEqual(Object.keys(issued.data).sort(), ['delivery', 'existing_account', 'expires_in', 'mobile', 'requires_identity', 'resend_after', 'seller_verification_status'].sort());
 
   const duplicate = await post('request', { mobile });
   assert.equal(duplicate.status, 429);

@@ -17,7 +17,7 @@ test('OTP is sent only through the provider and never returned to the requester'
   const result = await service.issue('09000000010', { store_slug: 'test-store' });
   assert.match(sent[0].code, /^\d{6}$/u);
   assert.equal(sent[0].mobile, '09000000010');
-  assert.deepEqual(result, { expires_in: 300, resend_after: 60, delivery: 'sms' });
+  assert.deepEqual(result, { expires_in: 120, resend_after: 120, delivery: 'sms' });
   assert.equal(JSON.stringify(result).includes(sent[0].code), false);
   assert.deepEqual(service.consume('09000000010', sent[0].code), { store_slug: 'test-store' });
 });
@@ -30,10 +30,10 @@ test('OTP cannot be consumed for a different number or replayed after successful
   assert.throws(() => service.consume('09000000011', sent[0].code), { status: 401 });
 });
 
-test('OTP expires at the five-minute boundary', async () => {
+test('OTP expires at the two-minute boundary', async () => {
   const { service, sent, advance } = fixture();
   await service.issue('09000000013');
-  advance(300000);
+  advance(120000);
   assert.throws(() => service.consume('09000000013', sent[0].code), { status: 401 });
 });
 
@@ -76,26 +76,45 @@ test('failed or ambiguous delivery invalidates the code and retains resend prote
   await assert.rejects(service.issue('09000000017'), failure);
   assert.throws(() => service.consume('09000000017', sent[0].code), { status: 401 });
   await assert.rejects(service.issue('09000000017'), { status: 429 });
-  advance(60000);
+  advance(120000);
   await assert.rejects(service.issue('09000000017'), failure);
   assert.equal(sent.length, 2);
 });
 
-test('a number has a one-minute cooldown and five sends per sliding hour', async () => {
+test('a number has a two-minute cooldown and five sends per sliding hour', async () => {
   const { service, sent, advance } = fixture();
   await service.issue('09000000018');
-  advance(59999);
+  advance(119999);
   await assert.rejects(service.issue('09000000018'), { status: 429 });
   advance(1);
   for (let count = 1; count < 5; count += 1) {
     await service.issue('09000000018');
-    advance(60000);
+    advance(120000);
   }
   await assert.rejects(service.issue('09000000018'), { status: 429 });
   advance(3600000);
   await service.issue('09000000018');
   service.consume('09000000018', sent.at(-1).code);
   assert.equal(sent.length, 6);
+});
+
+test('the code remains valid until the final millisecond before expiration', async () => {
+  const { service, sent, advance } = fixture();
+  await service.issue('09000000021');
+  advance(119999);
+  service.consume('09000000021', sent[0].code);
+});
+
+test('provider latency does not shorten code validity or the resend countdown', async () => {
+  const state = fixture(() => state.advance(10000));
+  const result = await state.service.issue('09000000022');
+  assert.deepEqual(result, { expires_in: 120, resend_after: 120, delivery: 'sms' });
+  state.advance(119999);
+  await assert.rejects(state.service.issue('09000000022'), { status: 429 });
+  state.service.consume('09000000022', state.sent[0].code);
+  state.advance(1);
+  await state.service.issue('09000000022');
+  assert.equal(state.sent.length, 2);
 });
 
 test('a consumed code cannot bypass resend cooldown', async () => {

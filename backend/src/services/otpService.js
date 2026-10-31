@@ -2,8 +2,8 @@ const { createHmac, randomBytes, randomInt, timingSafeEqual } = require('node:cr
 const ApiError = require('../utils/apiError');
 const sms = require('./smsService');
 
-const TTL_MS = 5 * 60 * 1000;
-const RESEND_MS = 60 * 1000;
+const TTL_MS = 2 * 60 * 1000;
+const RESEND_MS = TTL_MS;
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const MAX_SENDS_PER_MOBILE = 5;
@@ -33,10 +33,9 @@ function createOtpService({ sendOtp = (payload) => sms.sendOtp(payload), now = D
   async function issue(mobile, context = {}) {
     const time = now();
     prune(time);
-    const record = records.get(mobile) || { sends: [], challenge: null, pending: false };
-    const previousSend = record.sends.at(-1);
-    if (record.pending || (previousSend !== undefined && time - previousSend < RESEND_MS)) {
-      throw new ApiError(429, 'برای ارسال مجدد کد، یک دقیقه صبر کنید.');
+    const record = records.get(mobile) || { sends: [], challenge: null, pending: false, resendAt: 0 };
+    if (record.pending || time < record.resendAt) {
+      throw new ApiError(429, 'برای ارسال مجدد کد، دو دقیقه صبر کنید.');
     }
     if (record.sends.length >= MAX_SENDS_PER_MOBILE) {
       throw new ApiError(429, 'تعداد درخواست‌های این شماره بیش از حد مجاز است. یک ساعت بعد تلاش کنید.');
@@ -57,21 +56,25 @@ function createOtpService({ sendOtp = (payload) => sms.sendOtp(payload), now = D
     };
     record.challenge = challenge;
     record.pending = true;
+    record.resendAt = time + RESEND_MS;
     record.sends.push(time);
     sends.push(time);
     records.set(mobile, record);
 
     try {
       await sendOtp({ mobile, code });
+      const acceptedAt = now();
       challenge.ready = true;
-      challenge.expiresAt = now() + TTL_MS;
+      challenge.expiresAt = acceptedAt + TTL_MS;
+      record.resendAt = acceptedAt + RESEND_MS;
       return {
         expires_in: TTL_MS / 1000,
-        resend_after: Math.max(0, Math.ceil((time + RESEND_MS - now()) / 1000)),
+        resend_after: RESEND_MS / 1000,
         delivery: 'sms',
       };
     } catch (error) {
       discard(record);
+      record.resendAt = now() + RESEND_MS;
       // A timed-out request may already have sent an SMS; retain cooldown and send quotas.
       throw error;
     } finally {
