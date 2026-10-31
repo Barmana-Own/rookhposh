@@ -77,7 +77,7 @@ export default function SellerAuth() {
         </div>
 
         {error ? <div role="alert" className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">{error}</div> : null}
-        {step !== 'mobile' ? <div role="status" className="mb-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">کد تایید به شمارهٔ <bdi>{form.mobile}</bdi> پیامک شد و تا پنج دقیقه معتبر است.</div> : null}
+        {step !== 'mobile' ? <div role="status" className="mb-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">کد برای شما پیامک شد.</div> : null}
 
         <div className="grid gap-4">
           <label className="block space-y-2">
