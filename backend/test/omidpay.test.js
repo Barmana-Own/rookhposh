@@ -110,6 +110,17 @@ test('does not expose network errors, bank error payloads or credentials', async
   });
 });
 
+test('an HTTP 200 authentication rejection never becomes a checkout token', async (t) => {
+  configure(t);
+  responses(t, [{ Result: 'erAAS_InvalidUseridOrPass', Token: null }]);
+  await assert.rejects(provider.createToken({ orderId: '1234', amountRial: 10000, callbackUrl: 'https://shop.test/callback' }), (error) => {
+    assert.equal(error.status, 502);
+    assert.equal(error.gatewayCode, 'erAAS_InvalidUseridOrPass');
+    assert.doesNotMatch(error.message, /test-only-password/);
+    return true;
+  });
+});
+
 test('rejects malformed and excessively large upstream responses', async (t) => {
   configure(t);
   t.mock.method(global, 'fetch', async () => new Response('x'.repeat(70000)));

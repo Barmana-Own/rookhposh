@@ -5,11 +5,14 @@ const jwt = require('jsonwebtoken');
 const service = require('../src/services/paymentService');
 const router = require('../src/routes/paymentRoutes');
 const { errorHandler } = require('../src/middleware/errorHandler');
-const { jwtSecret } = require('../src/config/env');
+const { jwtSecret, omidpay } = require('../src/config/env');
 
 const id = 'a'.repeat(32);
 
-async function application(t) {
+async function application(t, enabled = true) {
+  const previous = omidpay.enabled;
+  omidpay.enabled = enabled;
+  t.after(() => { omidpay.enabled = previous; });
   const app = express();
   app.use(express.json());
   app.use('/api/payments', router);
@@ -19,6 +22,18 @@ async function application(t) {
   t.after(() => new Promise((resolve) => server.close(resolve)));
   return `http://127.0.0.1:${server.address().port}/api/payments`;
 }
+
+test('disabled bank callbacks do not attempt verification or fulfillment', async (t) => {
+  const origin = await application(t, false);
+  const verify = t.mock.method(service, 'reconcile', async () => { throw new Error('must not run'); });
+  for (const method of ['GET', 'POST']) {
+    const response = await fetch(`${origin}/omidpay/callback/${id}`, { method, redirect: 'manual' });
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    await response.arrayBuffer();
+  }
+  assert.equal(verify.mock.callCount(), 0);
+});
 
 function headers(role = 'Seller') {
   return { Authorization: `Bearer ${jwt.sign({ id: 3, role }, jwtSecret)}`, 'Content-Type': 'application/json' };

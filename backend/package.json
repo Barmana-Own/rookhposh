@@ -4,6 +4,7 @@
     "start": "node src/server.js",
     "lint": "node --check src/server.js",
     "test": "node --test test/*.test.js",
+    "test:payments:integration": "node --test test/integration/payments.test.js",
     "db:setup": "node src/database/setup.js",
     "db:export": "node src/database/export.js"
   },

@@ -2,6 +2,8 @@ const express = require('express');
 const service = require('../services/paymentService');
 const asyncHandler = require('../utils/asyncHandler');
 const { authenticate, authorize } = require('../middlewares/authMiddleware');
+const { omidpay } = require('../config/env');
+const ApiError = require('../utils/apiError');
 
 const router = express.Router();
 
@@ -11,6 +13,7 @@ router.use((req, res, next) => {
 });
 
 const callback = asyncHandler(async (req, res) => {
+  if (!omidpay.enabled) throw new ApiError(503, 'درگاه پرداخت هنوز فعال نشده است.');
   try {
     // State, amount and reference from the browser never authorize fulfillment.
     await service.reconcile(req.params.id, req.body?.token ?? req.query?.token ?? null);
