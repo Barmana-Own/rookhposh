@@ -17,6 +17,10 @@ module.exports = {
   jwtUserExpiresIn: process.env.JWT_USER_EXPIRES_IN || process.env.JWT_EXPIRES_IN || '30d',
   jwtAdminExpiresIn: process.env.JWT_ADMIN_EXPIRES_IN || '24h',
   unlimitedProUserMobiles: process.env.PRO_UNLIMITED_USER_MOBILES ?? '09037862349',
+  kavenegar: {
+    apiKey: process.env.KAVENEGAR_API_KEY || '',
+    template: process.env.KAVENEGAR_OTP_TEMPLATE || '',
+  },
   omidpay: {
     enabled: truthy(process.env.OMIDPAY_ENABLED),
     terminalId: process.env.OMIDPAY_TERMINAL_ID || '',

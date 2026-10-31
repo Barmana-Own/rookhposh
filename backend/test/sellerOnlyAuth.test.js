@@ -5,6 +5,7 @@ const auth = require('../src/services/authService');
 const db = require('../src/repositories/dbStore');
 const { jwtSecret } = require('../src/config/env');
 const { authenticate, authorizeApprovedSeller } = require('../src/middlewares/authMiddleware');
+const sms = require('../src/services/smsService');
 
 function replace(t, object, key, value) {
   const original = object[key];
@@ -12,14 +13,23 @@ function replace(t, object, key, value) {
   t.after(() => { object[key] = original; });
 }
 
+function captureOtp(t) {
+  let sent;
+  replace(t, sms, 'sendOtp', async (payload) => { sent = payload; });
+  return () => sent.code;
+}
+
 test('public OTP defaults to Seller and never resolves legacy customer accounts', async (t) => {
+  const sentCode = captureOtp(t);
   const lookups = [];
   replace(t, db, 'findUserByMobileAndRole', async (mobile, role) => {
     lookups.push({ mobile, role });
     return { id: 72, role: 'Seller', status: 'active', seller_verification_status: 'approved' };
   });
-  const issued = await auth.requestOtp({ mobile: '00000000001' });
-  const session = await auth.verifyOtp({ mobile: issued.mobile, code: issued.dev_code });
+  const issued = await auth.requestOtp({ mobile: '09000000001' });
+  assert.equal(issued.dev_code, undefined);
+  assert.equal(issued.delivery, 'sms');
+  const session = await auth.verifyOtp({ mobile: issued.mobile, code: sentCode() });
   assert.equal(session.user.role, 'Seller');
   assert.ok(lookups.length >= 2);
   assert.ok(lookups.every(({ role }) => role === 'Seller'));
@@ -34,7 +44,8 @@ test('public OTP rejects customer and administrator role requests before queryin
 });
 
 test('seller onboarding preserves a legacy customer and creates a separate pending seller', async (t) => {
-  const customer = { id: 15, role: 'User', username: '00000000003', wallet_balance: 125000 };
+  const sentCode = captureOtp(t);
+  const customer = { id: 15, role: 'User', username: '09000000003', wallet_balance: 125000 };
   let created;
   replace(t, db, 'findUserByMobileAndRole', async () => null);
   replace(t, db, 'findUserByUsername', async () => customer);
@@ -43,14 +54,14 @@ test('seller onboarding preserves a legacy customer and creates a separate pendi
     return { id: 73, ...payload, status: 'active', seller_verification_status: 'pending' };
   });
   const issued = await auth.requestOtp({ mobile: customer.username });
-  const session = await auth.verifyOtp({ mobile: issued.mobile, code: issued.dev_code, fullname: 'Test Seller' });
+  const session = await auth.verifyOtp({ mobile: issued.mobile, code: sentCode(), fullname: 'Test Seller' });
   assert.equal(created.username, customer.username + '-seller');
   assert.equal(created.role, 'Seller');
   assert.notEqual(created.password, 'otp-' + customer.username);
   assert.equal(created.seller_verification_status, undefined);
   assert.equal(created.wallet_balance, undefined);
   assert.equal(session.user.seller_verification_status, 'pending');
-  assert.deepEqual(customer, { id: 15, role: 'User', username: '00000000003', wallet_balance: 125000 });
+  assert.deepEqual(customer, { id: 15, role: 'User', username: '09000000003', wallet_balance: 125000 });
 });
 
 test('public registration cannot choose a customer or admin role or assign seller privileges', async (t) => {

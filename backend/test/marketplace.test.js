@@ -83,7 +83,9 @@ test('clamps admin pagination to safe bounds and reports total pages', () => {
   assert.deepEqual(db.paginationMeta(3, 25, 51), { page: 3, pageSize: 25, total: 51, totalPages: 3 });
 });
 
-test('recognizes an existing seller account without requiring new identity data', async () => {
+test('recognizes an existing seller account without requiring new identity data', async (t) => {
+  let sentCode;
+  t.mock.method(require('../src/services/smsService'), 'sendOtp', async ({ code }) => { sentCode = code; });
   const originalLookup = db.findUserByMobileAndRole;
   const originalCreate = db.createUser;
   let createCalled = false;
@@ -103,7 +105,8 @@ test('recognizes an existing seller account without requiring new identity data'
     assert.equal(requested.existing_account, true);
     assert.equal(requested.requires_identity, false);
 
-    const verified = await authService.verifyOtp({ mobile: requested.mobile, code: requested.dev_code, role: 'Seller' });
+    assert.equal(requested.dev_code, undefined);
+    const verified = await authService.verifyOtp({ mobile: requested.mobile, code: sentCode, role: 'Seller' });
     assert.equal(verified.user.id, 42);
     assert.equal(verified.user.seller_verification_status, 'approved');
     assert.equal(createCalled, false);
