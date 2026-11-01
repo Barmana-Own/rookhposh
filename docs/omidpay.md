@@ -1,6 +1,6 @@
 # Omidpay integration
 
-The backend uses Omidpay's `generateTokenWithNoSign`, `inquiryMerchantToken` and `verifyMerchantTrans` REST services over HTTPS. The frontend submits a token to `https://omid.shaparak.ir/_ipgw_/merchant/token`; card details are entered exclusively on Shaparak.
+The backend uses Omidpay's `generateTokenWithNoSign`, `inquiryMerchantToken` and `verifyMerchantTrans` REST services over HTTPS. The frontend posts the token and language to `https://omid.shaparak.ir/_ipgw_/MainTemplate/payment/`; card details are entered exclusively on Shaparak. This checkout route is supported by the issuer's sample form and was verified with a fresh token to display the merchant's card form. The former `/merchant/token` route returned a server error. Checkout tokens are single-use: create a fresh diagnostic token for each complete navigation check, retain the bank's session cookies through its redirects, and never submit card details during a connectivity check.
 
 Official references: [documents](https://omidpayment.ir/about-omidpay/documents), [current integration manual](https://omidpayment.ir/documents/ipg-manual-document.pdf), [extended REST manual](https://omidpayment.ir/documents/ipg-manual-document-2.pdf).
 

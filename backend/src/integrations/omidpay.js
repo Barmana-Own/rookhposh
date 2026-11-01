@@ -2,7 +2,7 @@ const ApiError = require('../utils/apiError');
 const { omidpay } = require('../config/env');
 
 const API_URL = 'https://ref.omidpayment.ir/ref-payment/RestServices/mts/';
-const GATEWAY_URL = 'https://omid.shaparak.ir/_ipgw_/merchant/token';
+const GATEWAY_URL = 'https://omid.shaparak.ir/_ipgw_/MainTemplate/payment/';
 const MAX_AMOUNT_RIAL = 999999999999;
 const MAX_RESPONSE_BYTES = 64 * 1024;
 

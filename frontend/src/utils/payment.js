@@ -1,4 +1,4 @@
-const GATEWAY_URL = 'https://omid.shaparak.ir/_ipgw_/merchant/token';
+const GATEWAY_URL = 'https://omid.shaparak.ir/_ipgw_/MainTemplate/payment/';
 
 export function redirectToGateway(result) {
   if (result?.status !== 'redirect_required') return false;

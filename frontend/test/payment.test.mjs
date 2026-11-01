@@ -4,7 +4,7 @@ import { redirectToGateway } from '../src/utils/payment.js';
 
 const payment = {
   status: 'redirect_required',
-  gateway: { url: 'https://omid.shaparak.ir/_ipgw_/merchant/token', method: 'POST', fields: { token: 'bank-token', language: 'fa' } },
+  gateway: { url: 'https://omid.shaparak.ir/_ipgw_/MainTemplate/payment/', method: 'POST', fields: { token: 'bank-token', language: 'fa' } },
 };
 
 function mockDocument(t, document) {
@@ -39,6 +39,8 @@ test('ignores non-gateway results and rejects substituted URLs, methods and toke
   for (const gateway of [
     { ...payment.gateway, url: 'https://attacker.test/' },
     { ...payment.gateway, url: 'javascript:alert(1)' },
+    { ...payment.gateway, url: 'https://omid.shaparak.ir/_ipgw_/merchant/token' },
+    { ...payment.gateway, url: `${payment.gateway.url}?token=other-token` },
     { ...payment.gateway, method: 'GET' },
     { ...payment.gateway, fields: { token: '<script>' } },
   ]) {

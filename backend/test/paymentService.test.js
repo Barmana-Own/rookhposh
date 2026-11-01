@@ -118,7 +118,7 @@ test('creates a pending request without exposing a successful payment or fulfill
   const result = await service.create(3, 25000, { type: 'wallet_charge' });
   assert.equal(result.status, 'redirect_required');
   assert.equal(result.amount, 25000);
-  assert.equal(result.gateway.url, 'https://omid.shaparak.ir/_ipgw_/merchant/token');
+  assert.equal(result.gateway.url, 'https://omid.shaparak.ir/_ipgw_/MainTemplate/payment/');
   assert.equal(result.gateway.fields.token, 'bank-token');
   assert.equal(attach.mock.callCount(), 1);
 });
