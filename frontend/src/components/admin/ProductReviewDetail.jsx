@@ -36,6 +36,7 @@ export default function ProductReviewDetail({ id, onReviewed }) {
   const [failure, setFailure] = useState('');
   const [done, setDone] = useState('');
   const lock = useRef(false);
+  const approveTrigger = useRef(null);
   const reason = data?.reasons.find((item) => String(item.id) === reasonId);
   const decide = async () => {
     if (!data || lock.current || !action) return;
@@ -72,8 +73,8 @@ export default function ProductReviewDetail({ id, onReviewed }) {
     {data.current_product && <details className="rounded-xl border border-slate-200 p-3 dark:border-slate-700"><summary className="cursor-pointer font-bold">مشاهده نسخه فعلیِ تأییدشده</summary><div className="mt-3 space-y-3"><b>{data.current_product.title}</b><p className="text-sm">{data.current_product.description}</p><div className="grid gap-3 sm:grid-cols-2">{data.current_product.images.map((asset, index) => <PrivateImagePanel key={asset.url} asset={asset} title={'تصویر نسخه فعلی ' + faNumber(index + 1)} />)}</div></div></details>}
     <ReviewHistory productId={id} initial={data.history} />
     {data.reviewable && !done && <section className="space-y-4 border-t border-slate-200 pt-4 dark:border-slate-700">
-      <div className="flex flex-wrap gap-3"><button className="btn-primary" disabled={busy} onClick={() => { setAction('approved'); setFailure(''); }}>تأیید محصول</button><button className="btn-soft text-rose-600" disabled={busy} onClick={() => { setAction('rejected'); setFailure(''); }}>رد محصول</button></div>
-      <AccessibleModal open={action === 'approved'} onClose={() => setAction(null)} title="تأیید نهایی محصول" busy={busy}>
+      <div className="flex flex-wrap gap-3"><button className="btn-primary" disabled={busy} onClick={(event) => { approveTrigger.current = event.currentTarget; setAction('approved'); setFailure(''); }}>تأیید محصول</button><button className="btn-soft text-rose-600" disabled={busy} onClick={() => { setAction('rejected'); setFailure(''); }}>رد محصول</button></div>
+      <AccessibleModal returnFocusRef={approveTrigger} open={action === 'approved'} onClose={() => setAction(null)} title="تأیید نهایی محصول" busy={busy}>
         <div className="space-y-3"><p className="text-sm">تأیید نهایی محصول «{product.title}» را ثبت می‌کنید؟</p><button className="btn-primary" disabled={busy} onClick={decide}>{busy ? 'در حال ثبت...' : 'ثبت تأیید نهایی'}</button><button className="btn-soft mr-2" disabled={busy} onClick={() => setAction(null)}>انصراف</button></div>
       </AccessibleModal>
       {action === 'rejected' && <form className="space-y-3 rounded-xl bg-rose-50 p-4 dark:bg-rose-500/10" onSubmit={(event) => { event.preventDefault(); decide(); }}>

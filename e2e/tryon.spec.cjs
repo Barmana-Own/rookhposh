@@ -71,10 +71,14 @@ test('real UI progress, latest output, private history and current/old downloads
 });
 
 test('recoverable AI failure offers controlled retry and preserves last output', async ({ page }) => {
-  await prepare(page); await page.request.post('/_fixture/mode', { maxRetries: 2, data: { mode: 'failure' } });
+  await prepare(page); await make(page);
+  const previousOutput = await page.getByAltText('آخرین خروجی موفق پرو آنلاین').getAttribute('src');
+  await page.getByRole('button', { name: 'پرو جدید', exact: true }).click();
+  await page.request.post('/_fixture/mode', { maxRetries: 2, data: { mode: 'failure' } });
   try {
     await page.getByRole('button', { name: 'ساخت خروجی پرو', exact: true }).click();
     await expect(page.getByRole('button', { name: 'تلاش مجدد', exact: true })).toBeVisible();
+    await expect(page.getByAltText('آخرین خروجی موفق پرو آنلاین')).toHaveAttribute('src', previousOutput);
     await page.request.post('/_fixture/mode', { maxRetries: 2, data: { mode: 'success' } });
     await page.getByRole('button', { name: 'تلاش مجدد', exact: true }).click();
     await expect(page.getByText('خروجی با موفقیت ذخیره شد.', { exact: true })).toBeVisible();

@@ -2,14 +2,14 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { useRef } from 'react';
 
-export default function AccessibleModal({ open, onClose, title, description, children, wide = false, busy = false }) {
+export default function AccessibleModal({ open, onClose, title, description, children, wide = false, busy = false, returnFocusRef }) {
   const returnFocus = useRef(null);
   return (
     <Dialog.Root open={open} onOpenChange={(value) => { if (!value && !busy) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm" />
         <Dialog.Content dir="rtl" onEscapeKeyDown={(event) => { if (busy) event.preventDefault(); }}
-          onOpenAutoFocus={() => { returnFocus.current = document.activeElement; }}
+          onOpenAutoFocus={() => { returnFocus.current = returnFocusRef?.current || document.activeElement; }}
           onCloseAutoFocus={(event) => { event.preventDefault(); const target = returnFocus.current?.isConnected ? returnFocus.current : document.querySelector('main button:not([disabled]), main a[href]'); target?.focus?.({ preventScroll: true }); }}
           onInteractOutside={(event) => { if (busy) event.preventDefault(); }}
           className={`glass fixed left-1/2 top-1/2 z-[60] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl p-5 text-slate-950 outline-none dark:text-white sm:p-6 ${wide ? 'max-w-5xl' : 'max-w-xl'}`}>

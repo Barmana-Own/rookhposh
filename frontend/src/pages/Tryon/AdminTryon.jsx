@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import AdminPagination from '../../components/admin/AdminPagination.jsx';
 import PrivateImagePanel from '../../components/admin/PrivateImagePanel.jsx';
@@ -70,6 +70,7 @@ export default function AdminTryon() {
   const [filter, setFilter] = useState(draft);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
+  const dialogTrigger = useRef(null);
   const { data, error, loading, reload } = useAsyncResource(async () => {
     const params = new URLSearchParams({ ...filter, page: String(page), limit: '20' });
     return (await apiClient.get('/api/admin/tryon/jobs?' + params)).data.data;
@@ -96,8 +97,8 @@ export default function AdminTryon() {
       { key: 'successful_provider_name', label: 'سرویس موفق', render: (row) => row.successful_provider_name || '—' },
       { key: 'attempts_count', label: 'تلاش', render: (row) => faNumber(row.attempts_count) },
       { key: 'created_at', label: 'زمان ثبت', render: (row) => faDateTime(row.created_at) },
-    ]} renderActions={(row) => <button className="btn-soft" onClick={() => setSelected(row.id)}>جزئیات</button>} />
+    ]} renderActions={(row) => <button className="btn-soft" onClick={(event) => { dialogTrigger.current = event.currentTarget; setSelected(row.id); }}>جزئیات</button>} />
     <AdminPagination pagination={data?.pagination} onPageChange={setPage} />
-    <AccessibleModal open={Boolean(selected)} onClose={() => setSelected(null)} title="جزئیات پرو آنلاین" wide>{selected && <JobDetail key={selected} id={selected} />}</AccessibleModal>
+    <AccessibleModal returnFocusRef={dialogTrigger} open={Boolean(selected)} onClose={() => setSelected(null)} title="جزئیات پرو آنلاین" wide>{selected && <JobDetail key={selected} id={selected} />}</AccessibleModal>
   </section>;
 }

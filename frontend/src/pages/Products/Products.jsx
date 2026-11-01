@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import AdminPagination from '../../components/admin/AdminPagination.jsx';
 import AccessibleModal from '../../components/ui/AccessibleModal.jsx';
 import ProductReviewDetail from '../../components/admin/ProductReviewDetail.jsx';
@@ -52,6 +52,7 @@ export default function Products() {
     { pollMs: 4000, keepPreviousData: true },
   );
   const [detailId, setDetailId] = useState(null);
+  const dialogTrigger = useRef(null);
   const [reasonSettings, setReasonSettings] = useState(false);
 
   const rows = useMemo(() => (Array.isArray(response) ? response : response?.items || []), [response]);
@@ -82,7 +83,7 @@ export default function Products() {
       </div>
 
 
-      <button className="btn-soft self-start" onClick={() => setReasonSettings(true)}>مدیریت دلایل رد محصول</button>
+      <button className="btn-soft self-start" onClick={(event) => { dialogTrigger.current = event.currentTarget; setReasonSettings(true); }}>مدیریت دلایل رد محصول</button>
       <div className="card flex flex-wrap gap-2">
         {tabs.map(([value, label]) => (
           <button key={value} onClick={() => { setTab(value); setPage(1); }} className={tab === value ? 'btn-primary' : 'btn-soft'}>
@@ -110,15 +111,15 @@ export default function Products() {
             ),
           },
         ]}
-        renderActions={(row) => <button className="btn-soft" onClick={() => setDetailId(row.id)}>جزئیات</button>}
+        renderActions={(row) => <button className="btn-soft" onClick={(event) => { dialogTrigger.current = event.currentTarget; setDetailId(row.id); }}>جزئیات</button>}
       />
 
       <AdminPagination pagination={pagination} onPageChange={setPage} />
 
-      <AccessibleModal open={Boolean(detailId)} onClose={() => setDetailId(null)} title="بررسی جزئیات محصول" wide>
+      <AccessibleModal returnFocusRef={dialogTrigger} open={Boolean(detailId)} onClose={() => setDetailId(null)} title="بررسی جزئیات محصول" wide>
         {detailId && <ProductReviewDetail key={detailId} id={detailId} onReviewed={(id) => { if (tab === 'pending') removeReviewedRow(id); reload(); }} />}
       </AccessibleModal>
-      <AccessibleModal open={reasonSettings} onClose={() => setReasonSettings(false)} title="مدیریت دلایل رد محصول" wide><RejectionReasons /></AccessibleModal>
+      <AccessibleModal returnFocusRef={dialogTrigger} open={reasonSettings} onClose={() => setReasonSettings(false)} title="مدیریت دلایل رد محصول" wide><RejectionReasons /></AccessibleModal>
     </section>
   );
 }
