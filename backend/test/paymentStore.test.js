@@ -54,6 +54,11 @@ function database(t, overrides = {}, failNotification = false) {
         assert.match(sql, /FOR UPDATE/);
         return [[{ ...state }]];
       }
+      if (/SELECT id FROM users/.test(sql)) return [[{ id: state.user_id }]];
+      if (/SELECT id, user_id, package_id FROM pro_subscriptions/.test(sql)) return [[]];
+      if (/SELECT title, role_type, duration_days/.test(sql)) {
+        return [[{ title: 'Test package', role_type: 'seller', duration_days: 7, pro_requests_count: 30, monthly_pro_request_limit: 30 }]];
+      }
       if (/UPDATE users SET wallet_balance/.test(sql)) {
         state.balance += Number(values[0]);
       } else if (/INSERT INTO pro_subscriptions/.test(sql)) {
@@ -113,7 +118,7 @@ test('uses the purchased package duration and activates a subscription once', as
   assert.equal(state.balance, 100);
   assert.equal(state.subscriptions, 1);
   const activation = queries.find(({ sql }) => sql.includes('INSERT INTO pro_subscriptions'));
-  assert.deepEqual(activation.values, [3, 9, 17, 30]);
+  assert.deepEqual(activation.values, [3, 9, 17, 30, 'Test package', 'seller', 30, 30]);
 });
 
 test('rejects an invalid package snapshot or inconsistent transaction state', async (t) => {

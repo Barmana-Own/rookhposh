@@ -20,7 +20,7 @@ export default function SellerDashboard() {
 
   return (
     <section className="page">
-      <SellerPageHeader title="داشبورد فروشگاه" description="مدیریت محصولات، تراکنش‌ها و وضعیت تایید محصولات فروشگاه شما." />
+      <SellerPageHeader title="داشبورد فروشگاه" description="وضعیت محصولات، اشتراک و توکن‌های باقی‌مانده فروشگاه شما." />
       <div className="grid-auto">{data.stats.map((item) => <StatCard key={item.label} label={item.label} value={item.value} delta={item.delta} showTrendIcon={false} />)}</div>
     </section>
   );

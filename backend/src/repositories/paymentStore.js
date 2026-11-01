@@ -1,6 +1,7 @@
 const { randomBytes } = require('node:crypto');
 const pool = require('../config/database');
 const ApiError = require('../utils/apiError');
+const entitlements = require('./entitlementStore');
 
 function parseMetadata(value) {
   return typeof value === 'string' ? JSON.parse(value) : (value || {});
@@ -127,18 +128,19 @@ async function finalize(id) {
       );
       if (result.affectedRows !== 1) throw new ApiError(409, 'حساب پرداخت پیدا نشد.');
     } else if (payment.package_id) {
-      // Honor the purchased duration, even if the administrator later edits or deactivates the package.
-      const duration = Number(metadata.duration_days);
-      if (!Number.isSafeInteger(duration) || duration < 1 || duration > 36500) {
-        throw new ApiError(409, 'اطلاعات بسته پرداخت معتبر نیست.');
-      }
-      await connection.query(
-        `INSERT INTO pro_subscriptions(user_id,package_id,transaction_id,starts_at,expires_at)
-         VALUES(?,?,?,NOW(),DATE_ADD(NOW(), INTERVAL ? DAY))`,
-        [payment.user_id, payment.package_id, payment.transaction_id, duration],
-      );
+      await entitlements.activateSubscription(connection, {
+        userId: payment.user_id, packageId: payment.package_id, transactionId: payment.transaction_id, metadata,
+      });
     } else if (metadata.token_purchase !== true) {
       throw new ApiError(409, 'نوع عملیات پرداخت معتبر نیست.');
+    } else {
+      const quantity = Number(metadata.token_quantity);
+      const unitPrice = Number(metadata.token_unit_price);
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100000
+          || !Number.isSafeInteger(unitPrice) || unitPrice < 1 || quantity * unitPrice !== Number(payment.amount)) {
+        throw new ApiError(409, 'اطلاعات خرید توکن با پرداخت مطابقت ندارد.');
+      }
+      await connection.query('SELECT id FROM users WHERE id=? FOR UPDATE', [payment.user_id]);
     }
     const [completed] = await connection.query("UPDATE transactions SET status='success' WHERE id=? AND status='pending'", [payment.transaction_id]);
     if (completed.affectedRows !== 1) throw new ApiError(409, 'وضعیت تراکنش پرداخت تغییر کرده است.');

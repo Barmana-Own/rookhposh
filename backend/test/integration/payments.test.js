@@ -167,13 +167,17 @@ test('seller payments settle safely in an isolated MariaDB database', { timeout:
     assert.equal(bank.get(checkout.gateway.fields.token).amountRial, 123450);
     const [[before]] = await pool.query('SELECT COUNT(*) AS total FROM pro_subscriptions WHERE user_id=?', [account.id]);
     assert.equal(before.total, 0);
-    await pool.query('UPDATE packages SET price=99999,duration_days=99 WHERE id=?', [created.insertId]);
+    await pool.query("UPDATE packages SET price=99999,duration_days=99,pro_requests_count=99999,monthly_pro_request_limit=99999,title='Changed',status='inactive' WHERE id=?", [created.insertId]);
     bank.get(checkout.gateway.fields.token).paid = true;
     await callback(checkout);
     await callback(checkout);
     const [subscriptions] = await pool.query('SELECT TIMESTAMPDIFF(DAY,starts_at,expires_at) AS days FROM pro_subscriptions WHERE user_id=?', [account.id]);
     assert.equal(subscriptions.length, 1);
     assert.equal(subscriptions[0].days, 7);
+    const home = await db.dashboardFor('Seller', account.id);
+    assert.equal(home.subscription.title.startsWith('Integration package '), true);
+    assert.equal(home.tokens_remaining, 80);
+    assert.equal(home.tokens_available, 30);
     assert.equal(Number((await payment(checkout.id)).amount), 12345);
     assert.equal(await balance(account), 0);
   });

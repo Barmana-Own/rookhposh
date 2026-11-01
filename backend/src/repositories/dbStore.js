@@ -6,6 +6,8 @@ const { isLegacyStoreSlug, slugifyStoreName } = require('../utils/storeSlug');
 const paymentService = require('../services/paymentService');
 const { amountInRials } = require('../integrations/omidpay');
 const ApiError = require('../utils/apiError');
+const { createHash } = require('node:crypto');
+const entitlements = require('./entitlementStore');
 
 const safeUser = (user) => {
   if (!user) return null;
@@ -1075,6 +1077,9 @@ async function chargeWallet(userId, amount, description = 'شارژ حساب', p
 
 async function spendWallet(userId, amount, transaction, providedConnection = null) {
   const normalizedAmount = toNumber(amount);
+  if (!Number.isSafeInteger(normalizedAmount) || normalizedAmount < 0) {
+    throw new ApiError(400, 'مبلغ پرداخت معتبر نیست.');
+  }
   const connection = providedConnection || await pool.getConnection();
   const ownsConnection = !providedConnection;
   try {
@@ -1138,33 +1143,12 @@ async function setSetting(key, value) {
   return { key, value: String(value ?? '') };
 }
 
-function packageRoleForUser(role) {
-  return role === 'Seller' ? 'seller' : 'user';
-}
-
 async function getActiveProSubscription(userId, connection = pool) {
-  const [[user]] = await connection.query('SELECT role FROM users WHERE id=? LIMIT 1', [userId]);
-  const roleType = packageRoleForUser(user?.role);
-  const [rows] = await connection.query(
-    `SELECT ps.id, ps.package_id, ps.transaction_id, ps.starts_at, ps.expires_at,
-            p.title, p.role_type, p.pro_requests_count, p.monthly_pro_request_limit
-     FROM pro_subscriptions ps
-     JOIN packages p ON p.id=ps.package_id
-     WHERE ps.user_id=? AND ps.expires_at>NOW() AND p.role_type=? AND p.status='active'
-     ORDER BY ps.expires_at DESC, ps.id DESC
-     LIMIT 1`,
-    [userId, roleType],
-  );
-  if (!rows[0]) return null;
-  return {
-    ...rows[0],
-    pro_requests_count: Number(rows[0].pro_requests_count || 0),
-    monthly_pro_request_limit: Number(rows[0].monthly_pro_request_limit || 0),
-  };
+  return (await entitlements.getSummary(userId, connection)).subscription;
 }
 
-async function getProQuota(userId, ipAddress) {
-  const [[user]] = await pool.query('SELECT role, pro_unlimited FROM users WHERE id=? LIMIT 1', [userId]);
+async function getProQuota(userId, ipAddress, connection = pool) {
+  const [[user]] = await connection.query('SELECT role, pro_unlimited FROM users WHERE id=? LIMIT 1', [userId]);
   const hasUnlimitedAccess = hasUnlimitedProAccess(user);
   if (hasUnlimitedAccess) {
     return {
@@ -1178,28 +1162,9 @@ async function getProQuota(userId, ipAddress) {
   }
 
   const ip = String(ipAddress || `user:${userId}`).slice(0, 64);
-  const subscription = await getActiveProSubscription(userId);
-  const [[count]] = await pool.query(
-    `SELECT COUNT(*) AS used
-     FROM pro_usages
-     WHERE ip_address=? AND is_free_trial=1 AND status='success'`,
-    [ip],
-  );
-  const freeLimit = 3;
-  const freeUsed = Number(count?.used || 0);
-  return {
-    free_limit: freeLimit,
-    free_used: freeUsed,
-    free_remaining: subscription ? null : Math.max(0, freeLimit - freeUsed),
-    has_subscription: Boolean(subscription),
-    has_unlimited_access: false,
-    subscription,
-  };
-}
-
-async function getPublicProQuota(ipAddress) {
-  const ip = String(ipAddress || 'unknown').slice(0, 64);
-  const [[count]] = await pool.query(
+  const summary = await entitlements.getSummary(userId, connection);
+  const subscription = summary.subscription;
+  const [[count]] = await connection.query(
     `SELECT COUNT(*) AS used
      FROM pro_usages
      WHERE ip_address=? AND is_free_trial=1 AND status='success'`,
@@ -1211,28 +1176,42 @@ async function getPublicProQuota(ipAddress) {
     free_limit: freeLimit,
     free_used: freeUsed,
     free_remaining: Math.max(0, freeLimit - freeUsed),
-    has_subscription: false,
+    has_subscription: Boolean(subscription),
     has_unlimited_access: false,
-    subscription: null,
+    subscription,
+    tokens_remaining: summary.tokens_remaining,
+    tokens_available: summary.tokens_available,
+    has_tokens: summary.tokens_available > 0,
+    can_use_pro: summary.tokens_available > 0 || freeUsed < freeLimit,
   };
 }
 
-async function activateProSubscription(userId, packageId, transactionId, providedConnection = null) {
+async function getPublicProQuota(ipAddress, sellerId = null, connection = pool) {
+  const ip = String(ipAddress || 'unknown').slice(0, 64);
+  const summary = sellerId == null ? null : await entitlements.getSummary(sellerId, connection, { requireSeller: true });
+  const [[count]] = await connection.query(
+    `SELECT COUNT(*) AS used
+     FROM pro_usages
+     WHERE ip_address=? AND is_free_trial=1 AND status='success'`,
+    [ip],
+  );
+  const freeLimit = 3;
+  const freeUsed = Number(count?.used || 0);
+  return {
+    free_limit: freeLimit,
+    free_used: freeUsed,
+    free_remaining: Math.max(0, freeLimit - freeUsed),
+    has_subscription: Boolean(summary?.subscription),
+    has_unlimited_access: false,
+    subscription: summary?.subscription ? { title: summary.subscription.title, expires_at: summary.subscription.expires_at } : null,
+    has_tokens: Boolean(summary?.tokens_available > 0),
+    can_use_pro: Boolean(summary?.tokens_available > 0) || freeUsed < freeLimit,
+  };
+}
+
+async function activateProSubscription(userId, packageId, transactionId, providedConnection = null, metadata = {}) {
   const connection = providedConnection || pool;
-  const [[pack]] = await connection.query(
-    `SELECT id, duration_days, role_type
-     FROM packages
-     WHERE id=? AND status='active'
-     LIMIT 1`,
-    [packageId],
-  );
-  if (!pack) return null;
-  const [result] = await connection.query(
-    `INSERT INTO pro_subscriptions(user_id,package_id,transaction_id,starts_at,expires_at)
-     VALUES(?,?,?,NOW(),DATE_ADD(NOW(), INTERVAL ? DAY))`,
-    [userId, pack.id, transactionId || null, Math.max(1, Number(pack.duration_days || 30))],
-  );
-  return { id: result.insertId, package_id: Number(pack.id), role_type: pack.role_type, duration_days: Number(pack.duration_days || 30) };
+  return entitlements.activateSubscription(connection, { userId, packageId, transactionId, metadata });
 }
 
 async function getPackageById(id) {
@@ -1338,12 +1317,21 @@ async function purchasePackage(userId, packageId, roleType, payload = {}) {
   if (!Number.isSafeInteger(duration) || duration < 1 || duration > 36500) {
     throw new ApiError(400, 'مدت اعتبار بسته معتبر نیست.');
   }
+  const requestCount = Number(pack.pro_requests_count);
+  const monthlyLimit = Number(pack.monthly_pro_request_limit);
+  if (![requestCount, monthlyLimit].every((value) => Number.isSafeInteger(value) && value >= 0 && value <= 4294967295)
+      || !String(pack.title || '').trim()) {
+    throw new ApiError(400, 'سهمیه بسته معتبر نیست.');
+  }
   const transaction = {
     seller_id: roleType === 'seller' ? userId : null,
     package_id: pack.id,
     type: roleType === 'seller' ? 'seller_package_purchase' : 'package_purchase',
     description: `خرید ${pack.title}`,
-    metadata: { package_title: pack.title, role_type: roleType, duration_days: pack.duration_days, payment_method: paymentMethod },
+    metadata: {
+      package_title: pack.title, role_type: roleType, duration_days: pack.duration_days, payment_method: paymentMethod,
+      pro_requests_count: requestCount, monthly_pro_request_limit: monthlyLimit,
+    },
   };
 
   let transactionId;
@@ -1357,14 +1345,22 @@ async function purchasePackage(userId, packageId, roleType, payload = {}) {
   } else if (paymentMethod === 'direct_gateway') {
     return createGatewayPayment(userId, pack.price, transaction, payload.request_id);
   } else {
-    transactionId = await spendWallet(userId, pack.price, transaction);
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      transactionId = await spendWallet(userId, pack.price, transaction, connection);
+      await activateProSubscription(userId, pack.id, transactionId, connection, transaction.metadata);
+      await createNotification(userId, 'خرید پکیج ثبت شد', `پکیج «${pack.title}» با موفقیت خریداری شد.`, 'package_purchase', transactionId, connection);
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
-  if (status === 'success') {
-    await activateProSubscription(userId, pack.id, transactionId);
-  }
-
-  await createNotification(
+  if (status === 'pending') await createNotification(
     userId,
     status === 'pending' ? 'درخواست خرید پکیج ثبت شد' : 'خرید پکیج ثبت شد',
     status === 'pending'
@@ -1416,10 +1412,21 @@ async function purchaseTokens(userId, roleType, payload = {}) {
   } else if (paymentMethod === 'direct_gateway') {
     return createGatewayPayment(userId, total, transaction, payload.request_id);
   } else {
-    transactionId = await spendWallet(userId, total, transaction);
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      transactionId = await spendWallet(userId, total, transaction, connection);
+      await createNotification(userId, 'خرید توکن ثبت شد', `${quantity.toLocaleString('fa-IR')} توکن با موفقیت خریداری شد.`, 'token_purchase', transactionId, connection);
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
-  await createNotification(
+  if (status === 'pending') await createNotification(
     userId,
     status === 'pending' ? 'درخواست خرید توکن ثبت شد' : 'خرید توکن ثبت شد',
     status === 'pending'
@@ -1476,12 +1483,10 @@ async function approvePendingPayment(id) {
     }
 
     if (metadata.pending_action === 'package_purchase' && transaction.package_id) {
-      await activateProSubscription(transaction.user_id, transaction.package_id, transaction.id, connection);
+      await activateProSubscription(transaction.user_id, transaction.package_id, transaction.id, connection, metadata);
     }
 
     await connection.query('UPDATE transactions SET status="success" WHERE id=?', [id]);
-    await connection.commit();
-
     await createNotification(
       transaction.user_id,
       'پرداخت تایید شد',
@@ -1490,7 +1495,10 @@ async function approvePendingPayment(id) {
         : 'رسید پرداخت شما توسط ادمین تایید شد.',
       'payment_approved',
       id,
+      connection,
     );
+
+    await connection.commit();
 
     return { id: toNumber(id), status: 'success' };
   } catch (error) {
@@ -1555,10 +1563,10 @@ async function createProUpload(payload = {}) {
   return { id: result.insertId, product_id: product.id, status: 'uploaded' };
 }
 
-async function markProUploadUsed(connection, uploadId, { userId = null, ipAddress = null } = {}) {
+async function markProUploadUsed(connection, uploadId, { userId = null, ipAddress = null, productId = null } = {}) {
   if (uploadId == null || uploadId === '') return;
   const id = toNumber(uploadId);
-  if (!id) {
+  if (!Number.isSafeInteger(id) || id < 1) {
     const error = new Error('شناسه تصویر بارگذاری‌شده معتبر نیست.');
     error.status = 400;
     throw error;
@@ -1568,6 +1576,10 @@ async function markProUploadUsed(connection, uploadId, { userId = null, ipAddres
              SET status='used', used_at=NOW()
              WHERE id=? AND status='uploaded'`;
   const params = [id];
+  if (productId != null) {
+    sql += ' AND product_id=?';
+    params.push(productId);
+  }
   if (userId != null) {
     sql += ' AND user_id=?';
     params.push(userId);
@@ -1600,91 +1612,94 @@ async function createProUsage(userId, payload) {
   return { id: result.insertId, transaction_id: transactionId };
 }
 
-async function createProUsageEnhanced(userId, payload) {
-  const amount = toNumber(payload.amount || 0);
-  const product = payload.product_id ? await getProduct(payload.product_id) : null;
+async function saveEntitledProUsage({ userId = null, product, payload }) {
+  const quotaUserId = userId ?? product?.seller_id;
+  const ipAddress = String(payload.client_ip || (userId ? `user:${userId}` : 'unknown')).slice(0, 64);
   const description = payload.description || (product ? `پرو آنلاین برای محصول «${product.title}»` : 'استفاده از سرویس پرو');
-  const ipAddress = String(payload.client_ip || `user:${userId}`).slice(0, 64);
-  const quota = await getProQuota(userId, ipAddress);
-  if (!quota.has_subscription && !quota.has_unlimited_access && quota.free_remaining <= 0) {
-    const error = new Error('سه تجربه رایگان پرو آنلاین شما استفاده شده است. برای ادامه یک اشتراک فعال کنید.');
-    error.status = 402;
-    error.code = 'PRO_SUBSCRIPTION_REQUIRED';
-    throw error;
-  }
-  const isFreeTrial = quota.has_subscription || quota.has_unlimited_access ? 0 : 1;
-  const packageId = payload.package_id || quota.subscription?.package_id || null;
+  const amount = userId == null ? 0 : toNumber(payload.amount || 0);
+  if (amount !== 0) amountInRials(amount);
   const connection = await pool.getConnection();
-  let transactionId;
-  let result;
+  const ipLock = `pro-quota:${createHash('sha256').update(ipAddress).digest('hex').slice(0, 48)}`;
+  let ipLocked = false;
+  let started = false;
   try {
+    const [[lock]] = await connection.query('SELECT GET_LOCK(?,2) AS acquired', [ipLock]);
+    if (Number(lock.acquired) !== 1) throw new ApiError(409, 'درخواست قبلی در حال ثبت است. دوباره تلاش کنید.');
+    ipLocked = true;
     await connection.beginTransaction();
-    transactionId = await spendWallet(userId, amount, {
-      seller_id: payload.seller_id || product?.seller_id || null,
-      product_id: product?.id || null,
-      package_id: packageId,
-      type: 'pro_usage',
-      description,
-      metadata: {
-        package_id: packageId,
-        product_id: product?.id || null,
-        product_title: product?.title || '',
-        service: 'pro_usage',
-        ip_address: ipAddress,
-        is_free_trial: Boolean(isFreeTrial),
-      },
-    }, connection);
+    started = true;
+    const summary = await entitlements.getSummary(quotaUserId, connection, { lock: true, requireSeller: userId == null });
+    const [[trial]] = await connection.query(
+      "SELECT COUNT(*) AS used FROM pro_usages WHERE ip_address=? AND is_free_trial=1 AND status='success'", [ipAddress],
+    );
+    const subscription = summary.subscriptions.find((item) => item.available_tokens > 0);
+    const source = summary.has_unlimited_access ? 'unlimited' : subscription ? 'subscription'
+      : summary.purchased_tokens_remaining > 0 ? 'purchased' : Number(trial.used) < 3 ? 'trial' : null;
+    if (!source) {
+      const error = new ApiError(402, summary.tokens_remaining > 0
+        ? 'سقف مصرف ماهانه پرو تکمیل شده است.' : 'سهمیه پرو این فروشگاه تمام شده است.');
+      error.code = 'PRO_SUBSCRIPTION_REQUIRED';
+      throw error;
+    }
+    const isFreeTrial = source === 'trial' ? 1 : 0;
+    const packageId = source === 'subscription' ? subscription.package_id : null;
+    await markProUploadUsed(connection, payload.upload_id, { userId, ipAddress, productId: product?.id });
+    let transactionId;
+    if (userId != null) {
+      transactionId = await spendWallet(userId, amount, {
+        seller_id: product?.seller_id || null, product_id: product?.id || null, package_id: packageId,
+        type: 'pro_usage', description,
+        metadata: { service: 'pro_usage', ip_address: ipAddress, is_free_trial: Boolean(isFreeTrial) },
+      }, connection);
+    }
     const [inserted] = await connection.query(
       `INSERT INTO pro_usages(
-        user_id,package_id,product_id,amount,status,description,input_image,product_image,output_image,ip_address,is_free_trial
-      ) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+        user_id,package_id,product_id,amount,status,description,input_image,product_image,output_image,ip_address,is_free_trial,
+        quota_user_id,subscription_id,quota_source
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
-        userId,
-        packageId,
-        product?.id || payload.product_id || null,
-        amount,
-        'success',
-        description,
-        payload.input_image || null,
-        payload.product_image || product?.images?.[0] || null,
-        payload.output_image || null,
-        ipAddress,
-        isFreeTrial,
+        userId, packageId, product?.id || null, amount, 'success', description,
+        payload.input_image || null, product?.images?.[0] || payload.product_image || null,
+        payload.output_image || null, ipAddress, isFreeTrial,
+        quotaUserId, source === 'subscription' ? subscription.id : null, source,
       ],
     );
-    result = inserted;
-    await markProUploadUsed(connection, payload.upload_id, { userId, ipAddress });
+    if (product?.seller_id) {
+      await createNotification(product.seller_id, 'درخواست پرو آنلاین جدید',
+        `برای محصول «${product.title}» یک درخواست پرو آنلاین ثبت شد.`, 'pro_usage', inserted.insertId, connection);
+    }
+    const quota = userId == null
+      ? await getPublicProQuota(ipAddress, quotaUserId, connection)
+      : await getProQuota(userId, ipAddress, connection);
     await connection.commit();
+    return {
+      ...quota, id: inserted.insertId, transaction_id: transactionId, product_id: product?.id || null,
+      output_image: payload.output_image || null, description,
+    };
   } catch (error) {
-    await connection.rollback();
+    if (started) await connection.rollback();
     throw error;
   } finally {
-    connection.release();
+    let destroyed = false;
+    if (ipLocked) {
+      try {
+        await connection.query('SELECT RELEASE_LOCK(?)', [ipLock]);
+      } catch {
+        connection.destroy();
+        destroyed = true;
+        console.warn('Pro quota lock cleanup required a closed database connection');
+      }
+    }
+    if (!destroyed) connection.release();
   }
-  if (product?.seller_id) {
-    await createNotification(
-      product.seller_id,
-      'درخواست پرو آنلاین جدید',
-      `برای محصول «${product.title}» یک درخواست پرو آنلاین ثبت شد.`,
-      'pro_usage',
-      result.insertId,
-    );
-  }
-  return {
-    id: result.insertId,
-    transaction_id: transactionId,
-    product_id: product?.id || payload.product_id || null,
-    output_image: payload.output_image || null,
-    free_limit: quota.free_limit,
-    free_used: quota.free_used == null ? null : quota.free_used + (isFreeTrial ? 1 : 0),
-    free_remaining: quota.has_subscription || quota.has_unlimited_access ? null : Math.max(0, quota.free_remaining - 1),
-    has_subscription: quota.has_subscription,
-    has_unlimited_access: quota.has_unlimited_access,
-  };
+}
+
+async function createProUsageEnhanced(userId, payload) {
+  const product = payload.product_id ? await getProduct(payload.product_id) : null;
+  return saveEntitledProUsage({ userId, product, payload });
 }
 
 async function createPublicProUsage(payload) {
-  const ipAddress = String(payload.client_ip || 'unknown').slice(0, 64);
   const product = payload.product_id ? await getProduct(payload.product_id) : null;
   if (!product || product.status !== 'active' || product.publish_status !== 'active') {
     const error = new Error('محصول برای پرو آنلاین فعال نیست.');
@@ -1692,63 +1707,11 @@ async function createPublicProUsage(payload) {
     throw error;
   }
 
-  const quota = await getPublicProQuota(ipAddress);
-  if (quota.free_remaining <= 0) {
-    const error = new Error('سه تجربه رایگان پرو آنلاین شما استفاده شده است. برای ادامه وارد حساب شوید و اشتراک بخرید.');
-    error.status = 402;
-    error.code = 'PRO_SUBSCRIPTION_REQUIRED';
-    throw error;
+  if (!payload.upload_id || typeof payload.output_image !== 'string' || !payload.output_image.trim()
+      || payload.output_image.length > MAX_PRO_UPLOAD_DATA_LENGTH) {
+    throw new ApiError(400, 'تصویر بارگذاری‌شده و خروجی پرو معتبر را ارسال کنید.');
   }
-
-  const description = payload.description || `پرو آنلاین برای محصول «${product.title}»`;
-  const connection = await pool.getConnection();
-  let result;
-  try {
-    await connection.beginTransaction();
-    const [inserted] = await connection.query(
-      `INSERT INTO pro_usages(
-        user_id,package_id,product_id,amount,status,description,input_image,product_image,output_image,ip_address,is_free_trial
-      ) VALUES(NULL,NULL,?,?,?,?,?,?,?,?,1)`,
-      [
-        product.id,
-        toNumber(payload.amount || 0),
-        'success',
-        description,
-        payload.input_image || null,
-        payload.product_image || product.images?.[0] || null,
-        payload.output_image || null,
-        ipAddress,
-      ],
-    );
-    result = inserted;
-    await markProUploadUsed(connection, payload.upload_id, { ipAddress });
-    await connection.commit();
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
-
-  if (product.seller_id) {
-    await createNotification(
-      product.seller_id,
-      'درخواست پرو آنلاین جدید',
-      `برای محصول «${product.title}» یک درخواست پرو آنلاین عمومی ثبت شد.`,
-      'pro_usage',
-      result.insertId,
-    );
-  }
-
-  return {
-    id: result.insertId,
-    product_id: product.id,
-    output_image: payload.output_image || null,
-    free_limit: quota.free_limit,
-    free_used: quota.free_used + 1,
-    free_remaining: Math.max(0, quota.free_remaining - 1),
-    has_subscription: false,
-  };
+  return saveEntitledProUsage({ product, payload });
 }
 
 async function listProUsages(userId, productId = null) {
@@ -1775,7 +1738,7 @@ async function listProUsages(userId, productId = null) {
 
 async function listPublicProUsages(ipAddress, productId = null) {
   const params = [String(ipAddress || 'unknown').slice(0, 64)];
-  let where = 'pu.ip_address=? AND pu.user_id IS NULL AND pu.is_free_trial=1 AND pu.status="success"';
+  let where = 'pu.ip_address=? AND pu.user_id IS NULL AND pu.status="success"';
   if (productId) {
     where += ' AND pu.product_id=?';
     params.push(productId);
@@ -2085,14 +2048,14 @@ async function dashboardFor(role, id) {
   }
 
   if (role === 'Seller') {
-    const [[active], [pending], [rejected], [customers], [sales], [wallet], packages] = await Promise.all([
+    const [[active], [pending], [rejected], [customers], [sales], [wallet], summary] = await Promise.all([
       query('SELECT COUNT(*) value FROM products WHERE seller_id=? AND status="active"', [id]),
       query('SELECT COUNT(*) value FROM products WHERE seller_id=? AND (status="pending" OR pending_changes IS NOT NULL)', [id]),
       query('SELECT COUNT(*) value FROM products WHERE seller_id=? AND status="rejected"', [id]),
       query('SELECT COUNT(*) value FROM seller_customers WHERE seller_id=?', [id]),
       query('SELECT COALESCE(SUM(amount),0) value FROM transactions WHERE seller_id=? AND status="success"', [id]),
       query('SELECT wallet_balance value FROM users WHERE id=?', [id]),
-      listPackages('seller'),
+      entitlements.getSummary(id),
     ]);
     return {
       active_products: active.value,
@@ -2101,7 +2064,10 @@ async function dashboardFor(role, id) {
       customers: customers.value,
       sales_total: Number(sales.value),
       wallet_balance: Number(wallet.value),
-      active_package: packages[0] || null,
+      active_package: summary.subscription,
+      subscription: summary.subscription,
+      tokens_remaining: summary.tokens_remaining,
+      tokens_available: summary.tokens_available,
       charts: await monthlyChart(id),
     };
   }

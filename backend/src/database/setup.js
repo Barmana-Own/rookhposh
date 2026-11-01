@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { ensureEntitlementSchema } = require('./entitlementSchema');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 async function runSql(connection, file) {
@@ -147,6 +148,7 @@ async function setup() {
   });
   await runSql(connection, 'schema.sql');
   await applyMigrations(connection);
+  await ensureEntitlementSchema(connection);
   await connection.query(`ALTER TABLE marketplace.transactions MODIFY type ENUM('wallet_charge','package_purchase','product_purchase','pro_usage','seller_package_purchase','company_income','refund') NOT NULL`);
   await runSql(connection, 'seed.sql');
   await connection.end();

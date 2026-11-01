@@ -3,8 +3,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { toNumber } = require('../utils/number');
 
 function clientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const value = forwarded ? String(forwarded).split(',')[0].trim() : req.ip || req.socket.remoteAddress || '';
+  const value = req.ips?.at(-1) || req.ip || req.socket.remoteAddress || '';
   return value.replace(/^::ffff:/, '').slice(0, 64);
 }
 
@@ -12,7 +11,7 @@ async function publicProduct(slug, productId) {
   const store = await db.getStoreBySlug(slug);
   const products = store ? await db.listProducts({ sellerId: store.seller_id, status: 'active' }) : [];
   const product = products.find((item) => toNumber(item.id) === toNumber(productId));
-  if (!store || !product) {
+  if (!store || !product || product.publish_status !== 'active') {
     const error = new Error('محصول عمومی پیدا نشد.');
     error.status = 404;
     throw error;
@@ -26,8 +25,9 @@ exports.publicStore = asyncHandler(async (req, res) => {
 });
 
 exports.publicProQuota = asyncHandler(async (req, res) => {
-  await publicProduct(req.params.slug, req.params.productId);
-  res.json({ success: true, data: await db.getPublicProQuota(clientIp(req)) });
+  const product = await publicProduct(req.params.slug, req.params.productId);
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ success: true, data: await db.getPublicProQuota(clientIp(req), product.seller_id) });
 });
 
 exports.publicProHistory = asyncHandler(async (req, res) => {
@@ -41,6 +41,7 @@ exports.publicUploadProImage = asyncHandler(async (req, res) => {
     success: true,
     data: await db.createProUpload({
       ...(req.body || {}),
+      user_id: null,
       product_id: product.id,
       ip_address: clientIp(req),
     }),

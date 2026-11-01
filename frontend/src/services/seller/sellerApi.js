@@ -1,6 +1,7 @@
 import apiClient from '../apiClient';
 import { faDate, faDateTime, formatMoney } from '../../utils/formatters';
 import { getProductImages } from '../../utils/productImage';
+import { sellerEntitlementStats } from '../../utils/sellerEntitlements.js';
 
 const faStatus = (status) => ({
   pending: 'در انتظار بررسی',
@@ -33,6 +34,7 @@ export const sellerApi = {
         { label: 'محصولات تایید شده', value: data.active_products || 0, delta: 'زنده' },
         { label: 'در انتظار بررسی', value: data.pending_products || 0, delta: 'زنده' },
         { label: 'رد شده', value: data.rejected_products || 0, delta: 'زنده' },
+        ...sellerEntitlementStats(data),
       ],
       charts: data.charts?.length ? data.charts : [{ name: 'امروز', sales: data.sales_total || 0, orders: data.customers || 0 }],
     };

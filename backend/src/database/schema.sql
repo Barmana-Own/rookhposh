@@ -151,9 +151,14 @@ CREATE TABLE IF NOT EXISTS pro_usages (
   output_image LONGTEXT,
   ip_address VARCHAR(64),
   is_free_trial TINYINT(1) NOT NULL DEFAULT 0,
+  quota_user_id BIGINT UNSIGNED NULL,
+  subscription_id BIGINT UNSIGNED NULL,
+  quota_source VARCHAR(16) NOT NULL DEFAULT 'legacy',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_pro_usages_user FOREIGN KEY (user_id) REFERENCES users(id),
-  CONSTRAINT fk_pro_usages_package FOREIGN KEY (package_id) REFERENCES packages(id)
+  CONSTRAINT fk_pro_usages_package FOREIGN KEY (package_id) REFERENCES packages(id),
+  INDEX idx_pro_usages_quota (quota_user_id, quota_source, subscription_id, status, created_at),
+  INDEX idx_pro_usages_trial_ip (ip_address, is_free_trial, status)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS pro_uploads (
@@ -178,11 +183,15 @@ CREATE TABLE IF NOT EXISTS pro_subscriptions (
   transaction_id BIGINT UNSIGNED NULL,
   starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   expires_at DATETIME NOT NULL,
+  package_title VARCHAR(180) NULL,
+  role_type ENUM('user','seller') NULL,
+  pro_requests_count INT UNSIGNED NULL,
+  monthly_pro_request_limit INT UNSIGNED NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_pro_subscriptions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_pro_subscriptions_package FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
   INDEX idx_pro_subscriptions_user_expiry (user_id, expires_at),
-  INDEX idx_pro_subscriptions_transaction (transaction_id)
+  UNIQUE KEY uk_pro_subscriptions_transaction (transaction_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS stores (
@@ -190,6 +199,7 @@ CREATE TABLE IF NOT EXISTS stores (
   seller_id BIGINT UNSIGNED NOT NULL UNIQUE,
   store_name VARCHAR(160) NOT NULL,
   slug VARCHAR(180) NOT NULL UNIQUE,
+  legacy_slug VARCHAR(180) NULL,
   description TEXT,
   contact_phone VARCHAR(30),
   logo LONGTEXT,

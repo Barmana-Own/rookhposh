@@ -5,7 +5,10 @@ const { toNumber } = require('../utils/number');
 const ok = (res, data) => res.json({ success: true, data });
 const frontendOrigin = () => process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://dash.rookhposh.ir' : 'http://localhost:5173');
 
-exports.dashboard = asyncHandler(async (req, res) => ok(res, await service.dashboard(req.user.id)));
+exports.dashboard = asyncHandler(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  return ok(res, await service.dashboard(req.user.id));
+});
 exports.products = asyncHandler(async (req, res) => ok(res, await service.products(req.user.id, req.query)));
 exports.createProduct = asyncHandler(async (req, res) => ok(res, await service.createProduct(req.user.id, req.body)));
 exports.updateProduct = asyncHandler(async (req, res) => ok(res, await service.updateProduct(req.user.id, req.params.id, req.body)));

@@ -12,6 +12,7 @@ import { detectImageMime, getFinalProImageSource } from '../utils/proResponse.js
 import { preparePersonImage } from '../utils/personImage.js';
 import { describeCameraError, getNextCameraFacingMode, requestCameraStream } from '../utils/camera.js';
 import { toPersianMessage } from '../utils/errorMessages.js';
+import { canUsePro, mergeProQuota, proQuotaMessage } from '../utils/proQuota.js';
 
 function withImageExtension(filename, mime) {
   const extension = {
@@ -343,8 +344,8 @@ export default function PublicProduct() {
     try {
       const currentQuota = await publicApi.getProQuota(slug, product.id);
       setQuota(currentQuota);
-      if (!currentQuota.has_subscription && !currentQuota.has_unlimited_access && currentQuota.free_remaining <= 0) {
-        throw new Error('سهمیه رایگان پرو آنلاین شما تمام شده است.');
+      if (!canUsePro(currentQuota)) {
+        throw new Error(proQuotaMessage(currentQuota));
       }
       const uploadedImage = await publicApi.uploadProImage(slug, product.id, { image: userImage, file_name: fileName || 'person.jpg' });
       if (!uploadedImage?.id) throw new Error('ذخیره تصویر شما روی سرور ناموفق بود.');
@@ -371,13 +372,7 @@ export default function PublicProduct() {
         });
       const savedOutput = getProOutputSource(result.output_image || providerOutput);
       setOutput(savedOutput);
-      setQuota((current) => ({
-        ...(current || currentQuota),
-        free_used: result.free_used ?? current?.free_used ?? currentQuota.free_used,
-        free_remaining: result.free_remaining ?? current?.free_remaining ?? currentQuota.free_remaining,
-        has_subscription: result.has_subscription ?? current?.has_subscription ?? currentQuota.has_subscription,
-        has_unlimited_access: result.has_unlimited_access ?? current?.has_unlimited_access ?? currentQuota.has_unlimited_access,
-      }));
+      setQuota((current) => mergeProQuota(current || currentQuota, result));
       setHistory((current) => [
         {
           id: result.id,
@@ -563,13 +558,9 @@ export default function PublicProduct() {
               {quota ? (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
                   <span>
-                    {quota.has_unlimited_access
-                      ? 'تست نامحدود پرو آنلاین برای این حساب فعال است.'
-                      : quota.has_subscription
-                      ? `اشتراک فعال تا ${new Date(quota.subscription.expires_at).toLocaleDateString('fa-IR')}`
-                      : `${Number(quota.free_remaining || 0).toLocaleString('fa-IR')} تجربه رایگان باقی مانده است.`}
+                    {proQuotaMessage(quota)}
                   </span>
-                  {!quota.has_subscription && !quota.has_unlimited_access && quota.free_remaining <= 0 ? (
+                  {!canUsePro(quota) ? (
                     <Link
                       className="btn-primary"
                       to="/seller"

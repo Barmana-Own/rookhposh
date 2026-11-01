@@ -171,7 +171,7 @@ test('direct package checkout uses the server price and defers subscription acti
   t.mock.method(pool, 'query', async (sql) => {
     queries.push(sql);
     assert.match(sql, /SELECT \* FROM packages/);
-    return [[{ id: 9, title: 'Test package', price: '25000', duration_days: 30 }]];
+    return [[{ id: 9, title: 'Test package', price: '25000', duration_days: 30, pro_requests_count: 30, monthly_pro_request_limit: 30 }]];
   });
   t.mock.method(service, 'create', async (_userId, amount, transaction) => {
     assert.equal(amount, '25000');
