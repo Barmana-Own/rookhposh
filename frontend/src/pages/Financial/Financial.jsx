@@ -6,14 +6,15 @@ import { useAsyncResource } from '../../hooks/useAsyncResource.js';
 import apiClient from '../../services/apiClient.js';
 import { downloadBlob } from '../../utils/downloadBlob.js';
 import { faDateTime, formatMoney } from '../../utils/formatters.js';
+import { financialStatusLabel, financialTypeLabel, receiptUrlOf } from '../../utils/financialReport.js';
 
 const segments = [
-  ['users', 'کاربران'],
-  ['sellers', 'فروشگاه‌ها'],
-  ['company', 'شرکت'],
+  ['sellers', 'پرداخت فروشندگان'],
+  ['company', 'درآمد شرکت'],
 ];
 
 const ranges = [
+  ['all', 'همه زمان‌ها'],
   ['1d', '۱ روز'],
   ['7d', '۷ روز'],
   ['30d', '۳۰ روز'],
@@ -34,10 +35,6 @@ const paymentMethodLabels = {
 
 function paymentMethodOf(row = {}) {
   return row.metadata?.payment_method || row.metadata?.source || 'wallet';
-}
-
-function receiptUrlOf(row = {}) {
-  return row.metadata?.receipt?.dataUrl || row.metadata?.receipt?.url || '';
 }
 
 function paymentMethodLabel(row = {}) {
@@ -105,16 +102,17 @@ function PaymentReceiptModal({ row, onClose }) {
 }
 
 export default function Financial() {
-  const [segment, setSegment] = useState('users');
+  const [segment, setSegment] = useState('sellers');
   const [range, setRange] = useState('30d');
+  const [reportPage, setReportPage] = useState(1);
   const [pendingPage, setPendingPage] = useState(1);
   const [notice, setNotice] = useState('');
   const [bankEdits, setBankEdits] = useState(null);
   const [receiptRow, setReceiptRow] = useState(null);
   const [pendingActionId, setPendingActionId] = useState(null);
-  const { data, reload: reloadReport } = useAsyncResource(
-    async () => (await apiClient.get(`/api/admin/reports/financial/${segment}?range=${range}`)).data.data,
-    [segment, range],
+  const { data, loading: reportLoading, error: reportError, reload: reloadReport } = useAsyncResource(
+    async () => (await apiClient.get(`/api/admin/reports/financial/${segment}?range=${range}&page=${reportPage}&limit=25`)).data.data,
+    [segment, range, reportPage],
     { keepPreviousData: true },
   );
   const { data: pendingResponse, reload: reloadPending, updateData: updatePending } = useAsyncResource(
@@ -152,8 +150,12 @@ export default function Financial() {
   };
 
   const exportExcel = async () => {
-    const response = await apiClient.get(`/api/admin/reports/financial/${segment}/export?range=${range}`, { responseType: 'blob' });
-    downloadBlob(response.data, `admin-financial-${segment}-${range}.xlsx`);
+    try {
+      const response = await apiClient.get(`/api/admin/reports/financial/${segment}/export?range=${range}`, { responseType: 'blob' });
+      downloadBlob(response.data, `admin-financial-${segment}-${range}.xlsx`);
+    } catch (error) {
+      flash(error.message || 'دریافت خروجی گزارش انجام نشد.');
+    }
   };
 
   const approve = async (id) => {
@@ -202,7 +204,7 @@ export default function Financial() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black">گزارش مالی</h1>
-          <p className="text-slate-500">گزارش مالی کاربران، فروشگاه‌ها و شرکت با خروجی Excel و تایید رسیدهای واریز به حساب.</p>
+          <p className="text-slate-500">پرداخت فروشندگان و درآمد تأییدشدهٔ فروش پکیج و توکن؛ استفادهٔ مشتری از پرو رایگان است.</p>
         </div>
         <button className="btn-primary" onClick={exportExcel}>خروجی Excel</button>
       </div>
@@ -211,12 +213,12 @@ export default function Financial() {
 
       <div className="card flex flex-wrap gap-2">
         {segments.map((item) => (
-          <button key={item[0]} className={segment === item[0] ? 'btn-primary' : 'btn-soft'} onClick={() => setSegment(item[0])}>
+          <button key={item[0]} className={segment === item[0] ? 'btn-primary' : 'btn-soft'} onClick={() => { setSegment(item[0]); setReportPage(1); }}>
             {item[1]}
           </button>
         ))}
         {ranges.map((item) => (
-          <button key={item[0]} className={range === item[0] ? 'btn-primary' : 'btn-soft'} onClick={() => setRange(item[0])}>
+          <button key={item[0]} className={range === item[0] ? 'btn-primary' : 'btn-soft'} onClick={() => { setRange(item[0]); setReportPage(1); }}>
             {item[1]}
           </button>
         ))}
@@ -224,7 +226,7 @@ export default function Financial() {
 
       <div className="card">
         <h2 className="mb-2 text-xl font-black">مشخصات حساب بانکی ادمین</h2>
-        <p className="mb-4 text-sm text-slate-500">این اطلاعات در پرداخت‌های «واریز به حساب» برای کاربر و فروشگاه نمایش داده می‌شود.</p>
+        <p className="mb-4 text-sm text-slate-500">این اطلاعات در پرداخت‌های «واریز به حساب» به فروشندگان نمایش داده می‌شود.</p>
         <div className="grid gap-3 md:grid-cols-2">
           {bankFields.map(([key, label]) => (
             <label key={key} className="space-y-2">
@@ -249,7 +251,7 @@ export default function Financial() {
               { key: 'id', label: 'شناسه' },
               { key: 'user_name', label: 'کاربر' },
               { key: 'user_role', label: 'نقش' },
-              { key: 'type', label: 'نوع' },
+              { key: 'type', label: 'نوع', render: financialTypeLabel },
               { key: 'payment_method', label: 'روش پرداخت', render: (row) => paymentMethodLabel(row) },
               { key: 'amount', label: 'مبلغ', render: (row) => formatMoney(row.amount || 0) },
               { key: 'created_at', label: 'تاریخ', render: (row) => faDateTime(row.created_at) },
@@ -278,15 +280,25 @@ export default function Financial() {
         </div>
       ) : null}
 
+      {reportLoading ? <p role="status" className="text-sm text-slate-500">در حال دریافت گزارش مالی...</p> : null}
+      {reportError ? <div role="alert" className="card text-rose-600">{reportError.message || 'دریافت گزارش مالی انجام نشد.'}</div> : null}
+      {data && !reportError ? (
+        <div className="card flex flex-wrap gap-6">
+          <p>درآمد تأییدشده: <strong>{formatMoney(data.revenue_total || 0)}</strong></p>
+          {segment === 'sellers' ? <p>شارژ کیف پول فروشندگان: <strong>{formatMoney(data.wallet_deposits_total || 0)}</strong></p> : null}
+          <p className="text-sm text-slate-500">شارژ کیف پول جدا از درآمد فروش محاسبه می‌شود؛ مبالغ در انتظار یا ناموفق، درآمد نیستند.</p>
+        </div>
+      ) : null}
       <DataTable
         rows={data?.rows || []}
         columns={[
           { key: 'user_name', label: 'نام' },
           { key: 'user_email', label: 'ایمیل' },
-          { key: 'type', label: 'نوع' },
+          { key: 'type', label: 'نوع', render: financialTypeLabel },
           { key: 'payment_method', label: 'روش پرداخت', render: (row) => paymentMethodLabel(row) },
           { key: 'amount', label: 'مبلغ', render: (row) => formatMoney(row.amount || 0) },
-          { key: 'status', label: 'وضعیت' },
+          { key: 'status', label: 'وضعیت', render: financialStatusLabel },
+          { key: 'bank_reference', label: 'کد پیگیری بانک', render: (row) => row.bank_reference || '—' },
           { key: 'created_at', label: 'تاریخ', render: (row) => faDateTime(row.created_at) },
           {
             key: 'receipt',
@@ -299,6 +311,7 @@ export default function Financial() {
           },
         ]}
       />
+      <AdminPagination pagination={data?.pagination} onPageChange={setReportPage} />
       <PaymentReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} />
     </section>
   );

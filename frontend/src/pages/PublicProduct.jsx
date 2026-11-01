@@ -1,4 +1,4 @@
-import { Camera, CheckCircle2, Download, ImagePlus, LogIn, RefreshCw, Sparkles, Store, Upload, X } from 'lucide-react';
+import { Camera, CheckCircle2, Download, ImagePlus, RefreshCw, Sparkles, Store, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import apiClient from '../services/apiClient.js';
@@ -560,15 +560,6 @@ export default function PublicProduct() {
                   <span>
                     {proQuotaMessage(quota)}
                   </span>
-                  {!canUsePro(quota) ? (
-                    <Link
-                      className="btn-primary"
-                      to="/seller"
-                    >
-                      <LogIn size={16} />
-                      ورود به پنل فروشندگان
-                    </Link>
-                  ) : null}
                 </div>
               ) : null}
 

@@ -94,7 +94,7 @@ test('purchased seller entitlements are usable, visible and spent once in real M
     return (await api(account.path + '/use', { method: 'POST', expected, ip, body: { upload_id: uploadId, output_image: image, ...extra } })).data;
   }
 
-  await t.test('bank-confirmed package appears on the dashboard and unlocks store usage after the visitor trial', async (scope) => {
+  await t.test('bank-confirmed package appears on the dashboard and unlocks store-funded guest usage', async (scope) => {
     const account = await fixture(scope);
     await exhaustedTrial(account);
     assert.equal((await api(account.path + '/quota', { ip: account.ip })).data.can_use_pro, false);
@@ -146,7 +146,7 @@ test('purchased seller entitlements are usable, visible and spent once in real M
 
   await t.test('parallel requests with different IPs cannot spend the last store token twice', async (scope) => {
     const account = await fixture(scope, 1); await wallet(account); await buyPackage(account);
-    const otherIp = `203.0.113.${nextIp++}`; await exhaustedTrial(account); await exhaustedTrial(account, otherIp);
+    const otherIp = `203.0.113.${nextIp++}`;
     const first = await upload(account); const second = await upload(account, otherIp);
     const responses = await Promise.all([account.ip, otherIp].map((ip, index) => fetch(origin + account.path + '/use', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, body: JSON.stringify({ upload_id: index ? second : first, output_image: image }),
@@ -230,5 +230,25 @@ test('purchased seller entitlements are usable, visible and spent once in real M
     await pool.query("UPDATE users SET seller_verification_status='approved',status='blocked' WHERE id=?", [account.id]);
     await api(account.path + '/quota', { expected: 403, ip: account.ip });
     await use(account, uploaded, { expected: 403 });
+  });
+
+  await t.test('one customer can try on more than three times for free while only that store pays tokens', async (scope) => {
+    const account = await fixture(scope, 6); const other = await fixture(scope, 6);
+    await wallet(account); await wallet(other); await buyPackage(account); await buyPackage(other);
+    const originalWallet = Number((await db.findUserById(account.id)).wallet_balance);
+    for (let index = 0; index < 6; index += 1) {
+      const result = await use(account, await upload(account));
+      assert.equal(result.customer_payment_required, false);
+      assert.equal(result.customer_usage_limit, null);
+      assert.equal(result.free_remaining, null);
+      assert.equal(result.billing_source, 'store');
+    }
+    assert.equal((await dashboard(account)).tokens_remaining, 0);
+    assert.equal((await dashboard(other)).tokens_remaining, 6);
+    assert.equal(Number((await db.findUserById(account.id)).wallet_balance), originalWallet);
+    const [[used]] = await pool.query("SELECT COUNT(*) AS total,SUM(is_free_trial) AS trials,SUM(amount) AS amount FROM pro_usages WHERE quota_user_id=?", [account.id]);
+    assert.equal(used.total, 6); assert.equal(Number(used.trials), 0); assert.equal(Number(used.amount), 0);
+    await use(account, await upload(account), { expected: 402 });
+    assert.equal((await api(account.path + '/quota', { ip: `198.51.100.${nextIp++}` })).data.can_use_pro, false);
   });
 });

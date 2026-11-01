@@ -32,10 +32,11 @@ test('an active but exhausted subscription never bypasses an explicit server den
   assert.match(proQuotaMessage({ has_subscription: true, can_use_pro: false }), /پایان/);
 });
 
-test('allows paid store credit after the visitor trial is exhausted and preserves trial compatibility', () => {
+test('allows store credit without a customer allowance and never grants an IP trial', () => {
   assert.equal(canUsePro({ has_subscription: false, has_tokens: true, can_use_pro: true, free_remaining: 0 }), true);
-  assert.equal(canUsePro({ has_subscription: false, free_remaining: 2 }), true);
-  assert.match(proQuotaMessage({ has_tokens: true, can_use_pro: true }), /اعتبار فروشگاه/);
+  assert.equal(canUsePro({ has_subscription: false, free_remaining: 2 }), false);
+  assert.equal(canUsePro({ has_unlimited_access: true, can_use_pro: false }), false);
+  assert.match(proQuotaMessage({ has_tokens: true, can_use_pro: true }), /اعتبار همین فروشگاه/);
 });
 
 test('clears expired subscription and spent credit state without retaining large image payloads', () => {

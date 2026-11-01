@@ -8,6 +8,7 @@ const { amountInRials } = require('../integrations/omidpay');
 const ApiError = require('../utils/apiError');
 const { createHash } = require('node:crypto');
 const entitlements = require('./entitlementStore');
+const financialStore = require('./financialStore');
 
 const safeUser = (user) => {
   if (!user) return null;
@@ -1186,26 +1187,20 @@ async function getProQuota(userId, ipAddress, connection = pool) {
   };
 }
 
-async function getPublicProQuota(ipAddress, sellerId = null, connection = pool) {
-  const ip = String(ipAddress || 'unknown').slice(0, 64);
+async function getPublicProQuota(_ipAddress, sellerId = null, connection = pool) {
   const summary = sellerId == null ? null : await entitlements.getSummary(sellerId, connection, { requireSeller: true });
-  const [[count]] = await connection.query(
-    `SELECT COUNT(*) AS used
-     FROM pro_usages
-     WHERE ip_address=? AND is_free_trial=1 AND status='success'`,
-    [ip],
-  );
-  const freeLimit = 3;
-  const freeUsed = Number(count?.used || 0);
   return {
-    free_limit: freeLimit,
-    free_used: freeUsed,
-    free_remaining: Math.max(0, freeLimit - freeUsed),
+    free_limit: null,
+    free_used: null,
+    free_remaining: null,
+    customer_payment_required: false,
+    customer_usage_limit: null,
+    billing_source: 'store',
     has_subscription: Boolean(summary?.subscription),
     has_unlimited_access: false,
     subscription: summary?.subscription ? { title: summary.subscription.title, expires_at: summary.subscription.expires_at } : null,
     has_tokens: Boolean(summary?.tokens_available > 0),
-    can_use_pro: Boolean(summary?.tokens_available > 0) || freeUsed < freeLimit,
+    can_use_pro: Boolean(summary?.tokens_available > 0),
   };
 }
 
@@ -1623,22 +1618,28 @@ async function saveEntitledProUsage({ userId = null, product, payload }) {
   let ipLocked = false;
   let started = false;
   try {
-    const [[lock]] = await connection.query('SELECT GET_LOCK(?,2) AS acquired', [ipLock]);
-    if (Number(lock.acquired) !== 1) throw new ApiError(409, 'درخواست قبلی در حال ثبت است. دوباره تلاش کنید.');
-    ipLocked = true;
+    if (userId != null) {
+      const [[lock]] = await connection.query('SELECT GET_LOCK(?,2) AS acquired', [ipLock]);
+      if (Number(lock.acquired) !== 1) throw new ApiError(409, 'درخواست قبلی در حال ثبت است. دوباره تلاش کنید.');
+      ipLocked = true;
+    }
     await connection.beginTransaction();
     started = true;
     const summary = await entitlements.getSummary(quotaUserId, connection, { lock: true, requireSeller: userId == null });
-    const [[trial]] = await connection.query(
-      "SELECT COUNT(*) AS used FROM pro_usages WHERE ip_address=? AND is_free_trial=1 AND status='success'", [ipAddress],
-    );
+    let trialUsed;
+    if (userId != null) {
+      const [[trial]] = await connection.query(
+        "SELECT COUNT(*) AS used FROM pro_usages WHERE ip_address=? AND is_free_trial=1 AND status='success'", [ipAddress],
+      );
+      trialUsed = Number(trial.used);
+    }
     const subscription = summary.subscriptions.find((item) => item.available_tokens > 0);
     const source = summary.has_unlimited_access ? 'unlimited' : subscription ? 'subscription'
-      : summary.purchased_tokens_remaining > 0 ? 'purchased' : Number(trial.used) < 3 ? 'trial' : null;
+      : summary.purchased_tokens_remaining > 0 ? 'purchased' : userId != null && trialUsed < 3 ? 'trial' : null;
     if (!source) {
       const error = new ApiError(402, summary.tokens_remaining > 0
         ? 'سقف مصرف ماهانه پرو تکمیل شده است.' : 'سهمیه پرو این فروشگاه تمام شده است.');
-      error.code = 'PRO_SUBSCRIPTION_REQUIRED';
+      error.code = userId == null ? 'STORE_CREDIT_REQUIRED' : 'PRO_SUBSCRIPTION_REQUIRED';
       throw error;
     }
     const isFreeTrial = source === 'trial' ? 1 : 0;
@@ -2026,13 +2027,13 @@ async function createReview(userId, productId, payload) {
 
 async function dashboardFor(role, id) {
   if (role === 'Admin') {
-    const [[users], [sellers], [pendingSellers], [pendingProducts], [activeProducts], [companyIncome], [openTickets]] = await Promise.all([
+    const [[users], [sellers], [pendingSellers], [pendingProducts], [activeProducts], companyIncome, [openTickets]] = await Promise.all([
       query('SELECT COUNT(*) value FROM users WHERE role="User"'),
       query('SELECT COUNT(*) value FROM users WHERE role="Seller"'),
       query('SELECT COUNT(*) value FROM users WHERE role="Seller" AND seller_verification_status="pending"'),
       query('SELECT COUNT(*) value FROM products WHERE status="pending" OR pending_changes IS NOT NULL'),
       query('SELECT COUNT(*) value FROM products WHERE status="active"'),
-      query('SELECT COALESCE(SUM(amount),0) value FROM transactions WHERE type="company_income" AND status="success"'),
+      financialStore.companyOverview(),
       query('SELECT COUNT(*) value FROM tickets WHERE status="open"'),
     ]);
     return {
@@ -2041,9 +2042,10 @@ async function dashboardFor(role, id) {
       pending_sellers: pendingSellers.value,
       pending_products: pendingProducts.value,
       active_products: activeProducts.value,
-      company_income: Number(companyIncome.value),
+      company_income: companyIncome.company_income,
+      settled_payments: companyIncome.settled_payments,
       open_tickets: openTickets.value,
-      charts: await monthlyChart(),
+      charts: companyIncome.charts,
     };
   }
 

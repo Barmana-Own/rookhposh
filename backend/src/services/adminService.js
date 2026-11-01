@@ -1,6 +1,7 @@
 const db = require('../repositories/dbStore');
 const { exportWorkbook, exportWorkbookSheets } = require('../utils/excelExport');
 const { toNumber } = require('../utils/number');
+const financial = require('../repositories/financialStore');
 
 const userStatusLabel = { active: 'فعال', blocked: 'مسدود' };
 const sellerVerificationLabel = {
@@ -149,24 +150,10 @@ exports.rejectPayment = async (id, reason) => db.rejectPendingPayment(id, reason
 exports.notifications = async (id) => db.listNotifications(id);
 exports.readNotifications = async (id) => db.markNotificationsRead(id);
 
-exports.financialReport = async (segment, query = {}) => {
-  const typeMap = { users: 'wallet_charge', sellers: 'seller_package_purchase', company: 'company_income' };
-  const rows = await db.listTransactions({
-    range: query.range,
-    type: typeMap[segment] || typeMap.users,
-    start_date: query.start_date,
-    end_date: query.end_date,
-  });
-  return {
-    segment,
-    range: query.range || 'all',
-    total: rows.reduce((sum, row) => sum + Number(row.amount), 0),
-    rows,
-  };
-};
+exports.financialReport = async (segment, query = {}) => financial.report(segment, query);
 
 exports.exportFinancial = async (segment, query = {}) => {
-  const report = await exports.financialReport(segment, query);
+  const report = await financial.report(segment, query, { exportAll: true });
   return exportWorkbook(
     'Financial Report',
     [
@@ -176,9 +163,13 @@ exports.exportFinancial = async (segment, query = {}) => {
       { header: 'نوع تراکنش', key: 'type', width: 24 },
       { header: 'مبلغ', key: 'amount', width: 16 },
       { header: 'وضعیت', key: 'status', width: 14 },
+      { header: 'کد پیگیری بانک', key: 'bank_reference', width: 26 },
       { header: 'توضیحات', key: 'description', width: 36 },
       { header: 'تاریخ تراکنش', key: 'created_at', width: 22 },
     ],
-    report.rows,
+    report.rows.map((row) => ({
+      ...row,
+      status: { success: 'تأیید شده', pending: 'در انتظار تأیید', failed: 'ناموفق', unverified: 'نیازمند تأیید بانک' }[row.settlement_status] || row.status,
+    })),
   );
 };
