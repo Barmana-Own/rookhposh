@@ -12,7 +12,7 @@ module.exports = {
   jsonLimit: process.env.JSON_LIMIT || '10mb',
   proApiBodyLimit: process.env.PRO_API_BODY_LIMIT || '30mb',
   proApiOrigin: process.env.PRO_API_ORIGIN || 'http://91.107.232.169:6000',
-  trustProxy: truthy(process.env.TRUST_PROXY),
+  trustProxy: truthy(process.env.TRUST_PROXY) ? 'loopback' : false,
   jwtSecret: process.env.JWT_SECRET || 'change-this-secret',
   jwtUserExpiresIn: process.env.JWT_USER_EXPIRES_IN || process.env.JWT_EXPIRES_IN || '30d',
   jwtAdminExpiresIn: process.env.JWT_ADMIN_EXPIRES_IN || '24h',

@@ -2,6 +2,7 @@ const db = require('../repositories/dbStore');
 const { exportWorkbook, exportWorkbookSheets } = require('../utils/excelExport');
 const { toNumber } = require('../utils/number');
 const financial = require('../repositories/financialStore');
+const productReviews = require('./productReviewService');
 
 const userStatusLabel = { active: 'فعال', blocked: 'مسدود' };
 const sellerVerificationLabel = {
@@ -63,8 +64,8 @@ exports.products = async (query = {}) => db.listProducts({
   includeReviewStats: false,
   excludePendingChanges: query.status !== 'pending',
 });
-exports.approveProduct = async (id) => db.setProductStatus(id, 'active');
-exports.rejectProduct = async (id, reason) => db.setProductStatus(id, 'rejected', reason || 'رد شده توسط ادمین');
+exports.approveProduct = async (id, actorId, payload) => productReviews.decide(id, actorId, 'approved', payload);
+exports.rejectProduct = async (id, actorId, payload) => productReviews.decide(id, actorId, 'rejected', payload);
 
 exports.users = async (query = {}) => db.listUsers({
   role: query.role,

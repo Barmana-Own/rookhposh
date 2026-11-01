@@ -12,6 +12,8 @@ import { sellerApi } from '../../../services/seller/sellerApi';
 import { readImageAsDataUrl } from '../../../utils/file';
 import { getProductImage, getProductImages } from '../../../utils/productImage';
 import { getProductFeatures, normalizeProductFeatures } from '../../../utils/productFeatures.js';
+import { ReviewHistory } from '../../../components/admin/ProductReviewDetail.jsx';
+import { faDateTime } from '../../../utils/formatters.js';
 
 const filters = [
   { value: 'active', label: 'محصولات فعال' },
@@ -77,7 +79,8 @@ export default function SellerProducts() {
   const rows = useMemo(
     () =>
       data.filter((item) => {
-        const matchesFilter = item.status === filter;
+        const matchesFilter = filter === 'rejected' ? item.status === 'rejected' || item.review_status === 'rejected'
+          : filter === 'pending' ? item.status === 'pending' || item.hasPendingChanges : item.status === filter;
         const source = `${item.title} ${item.statusLabel || ''} ${item.publishLabel || ''}`;
         return matchesFilter && source.includes(search);
       }),
@@ -232,6 +235,7 @@ export default function SellerProducts() {
                 <div className="flex flex-wrap gap-2">
                   <span className="badge bg-indigo-500/10 text-indigo-600">{statusLabel[row.status]}</span>
                   {row.hasPendingChanges && <span className="badge bg-amber-500/10 text-amber-600">ویرایش در انتظار تایید</span>}
+                  {row.status === 'active' && row.review_status === 'rejected' && <span className="badge bg-rose-500/10 text-rose-600">ویرایش رد شده</span>}
                 </div>
               ),
             },
@@ -386,6 +390,9 @@ export default function SellerProducts() {
             <p><b>امتیاز:</b> {drawerProduct.reviewCount ? `${drawerProduct.rating} از ۵` : 'بدون امتیاز'}</p>
             {drawerProduct.hasPendingChanges && <p className="rounded-2xl bg-amber-50 p-3 font-bold text-amber-700">این محصول ویرایش در انتظار تایید ادمین دارد.</p>}
             <p><b>علت رد:</b> {drawerProduct.rejectionReason || 'برای این محصول علت ردی ثبت نشده است.'}</p>
+            {drawerProduct.reject_comment && <p className="whitespace-pre-wrap"><b>توضیحات مدیر:</b> {drawerProduct.reject_comment}</p>}
+            {drawerProduct.review_status === 'rejected' && <p><b>تاریخ رد:</b> {faDateTime(drawerProduct.reviewed_at)}</p>}
+            <ReviewHistory key={drawerProduct.id} productId={drawerProduct.id} seller />
           </div>
         )}
       </SellerDrawer>

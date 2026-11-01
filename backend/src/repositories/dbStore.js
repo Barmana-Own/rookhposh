@@ -350,10 +350,20 @@ async function deleteUser(id) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    const [[candidate]] = await connection.query('SELECT id,role FROM users WHERE id=?', [id]);
+    if (!candidate || candidate.role === 'Admin') { await connection.commit(); return { deleted: false }; }
+    const markPrivateImages = () => connection.query('UPDATE virtual_tryon_jobs SET deleted_at=COALESCE(deleted_at,NOW(3)),device_json=NULL,network_ciphertext=NULL WHERE user_id=?', [id]);
+    // A customer row must not be held while waiting on a job that is inserting its user foreign key.
+    if (candidate.role === 'User') await markPrivateImages();
+    const [[target]] = await connection.query('SELECT id,role FROM users WHERE id=? FOR UPDATE', [id]);
+    if (!target || target.role === 'Admin') { await connection.rollback(); return { deleted: false }; }
+    if (candidate.role !== 'User') await markPrivateImages();
+    await connection.query("UPDATE virtual_tryon_jobs SET status='failed',error_code='ACCOUNT_REMOVED',error_message='حساب حذف شده است.',credit_reserved=0,active_owner_key=NULL,completed_at=NOW(3) WHERE user_id=? AND lock_token IS NULL AND status IN ('validating','processing','saving')", [id]);
     await connection.query('DELETE FROM notifications WHERE user_id=?', [id]);
     await connection.query('DELETE FROM reviews WHERE user_id=? OR seller_id=?', [id, id]);
     await connection.query('DELETE tm FROM ticket_messages tm JOIN tickets t ON t.id=tm.ticket_id WHERE t.user_id=? OR tm.sender_id=?', [id, id]);
     await connection.query('DELETE FROM tickets WHERE user_id=?', [id]);
+    await connection.query('UPDATE pro_usages SET user_id=NULL,input_image=NULL,product_image=NULL,output_image=NULL WHERE user_id=? AND (tryon_job_id IS NOT NULL OR (quota_user_id IS NOT NULL AND quota_user_id<>?))', [id, id]);
     await connection.query('DELETE FROM pro_usages WHERE user_id=?', [id]);
     await connection.query('DELETE FROM pro_uploads WHERE user_id=?', [id]);
     await connection.query('DELETE FROM transactions WHERE user_id=? OR seller_id=?', [id, id]);
@@ -493,6 +503,8 @@ async function listProducts({
     } else if (status === 'active') {
       where.push('p.status="active" AND COALESCE(p.publish_status, "active")="active"');
       if (excludePendingChanges) where.push('p.pending_changes IS NULL');
+    } else if (status === 'rejected') {
+      where.push('(p.status="rejected" OR p.review_status="rejected")');
     } else {
       where.push('p.status=?');
       params.push(status);
@@ -519,6 +531,11 @@ async function listProducts({
     'p.status',
     'p.publish_status',
     'p.reject_reason',
+    'p.reject_reason_id',
+    'p.reject_comment',
+    'p.review_status',
+    'p.reviewed_at',
+    'p.review_revision',
     'p.created_at',
     'p.updated_at',
     'p.price AS price_toman',
@@ -668,57 +685,34 @@ async function createProduct(sellerId, payload) {
 }
 
 async function updateProduct(sellerId, productId, payload) {
-  const product = await getProduct(productId);
-  if (!product || product.seller_id !== Number(sellerId)) {
-    const error = new Error('product not found');
-    error.status = 404;
-    throw error;
-  }
-
-  const nextImages = Array.isArray(payload.images)
-    ? normalizeImages(payload.images)
-    : normalizeImages(product.images);
-  const nextChanges = {
-    title: payload.title || product.title,
-    description: payload.description ?? product.description,
-    features: payload.features === undefined
-      ? normalizeProductFeatures(product.features)
-      : normalizeProductFeatures(payload.features),
-    price: toNumber(payload.price || payload.price_toman || product.price || 0),
-    images: nextImages,
-  };
-
-  if (product.status === 'active') {
-    await pool.query(
-      `UPDATE products
-       SET pending_changes=?, reject_reason=NULL
-       WHERE id=? AND seller_id=?`,
-      [JSON.stringify(nextChanges), productId, sellerId],
-    );
-  } else {
-    await pool.query(
-      `UPDATE products
-       SET title=?, description=?, features=?, price=?, images=?, status='pending', reject_reason=NULL, qr_code=NULL, pending_changes=NULL
-       WHERE id=? AND seller_id=?`,
-      [
-        nextChanges.title,
-        nextChanges.description,
-        JSON.stringify(nextChanges.features),
-        nextChanges.price,
-        JSON.stringify(nextChanges.images),
-        productId,
-        sellerId,
-      ],
-    );
-  }
-
-  await notifyAdmins(
-    'ویرایش محصول برای بررسی',
-    `محصول ${payload.title || product.title} در فروشگاه ویرایش شد و دوباره نیاز به بررسی دارد.`,
-    'product_review',
-    productId,
-  );
-
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[product]] = await connection.query('SELECT * FROM products WHERE id=? AND seller_id=? FOR UPDATE', [productId, sellerId]);
+    if (!product) {
+      const error = new Error('product not found'); error.status = 404; throw error;
+    }
+    const nextChanges = {
+      title: payload.title || product.title,
+      description: payload.description ?? product.description,
+      features: normalizeProductFeatures(payload.features === undefined ? parseJson(product.features, []) : payload.features),
+      price: toNumber(payload.price || payload.price_toman || product.price || 0),
+      images: normalizeImages(Array.isArray(payload.images) ? payload.images : parseJson(product.images, [])),
+    };
+    if (product.status === 'active') {
+      await connection.query(
+        "UPDATE products SET pending_changes=?,reject_reason=NULL,reject_reason_id=NULL,reject_comment=NULL,review_status='pending',review_revision=review_revision+1 WHERE id=? AND seller_id=?",
+        [JSON.stringify(nextChanges), productId, sellerId],
+      );
+    } else {
+      await connection.query(
+        "UPDATE products SET title=?,description=?,features=?,price=?,images=?,status='pending',reject_reason=NULL,reject_reason_id=NULL,reject_comment=NULL,qr_code=NULL,pending_changes=NULL,review_status='pending',review_revision=review_revision+1 WHERE id=? AND seller_id=?",
+        [nextChanges.title, nextChanges.description, JSON.stringify(nextChanges.features), nextChanges.price, JSON.stringify(nextChanges.images), productId, sellerId],
+      );
+    }
+    await notifyAdmins('ویرایش محصول برای بررسی', 'محصول ' + nextChanges.title + ' در فروشگاه ویرایش شد و دوباره نیاز به بررسی دارد.', 'product_review', productId, connection);
+    await connection.commit();
+  } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
   return getProduct(productId);
 }
 

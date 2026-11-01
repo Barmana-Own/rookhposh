@@ -7,6 +7,8 @@ import { accountHome } from '../utils/authNavigation.js';
 
 const Dashboard = lazy(() => import('../pages/Dashboard/Dashboard.jsx'));
 const Products = lazy(() => import('../pages/Products/Products.jsx'));
+const AdminTryon = lazy(() => import('../pages/Tryon/AdminTryon.jsx'));
+const AISettings = lazy(() => import('../pages/Tryon/AISettings.jsx'));
 const Users = lazy(() => import('../pages/Users/Users.jsx'));
 const AdminPackages = lazy(() => import('../pages/Packages/AdminPackages.jsx'));
 const Financial = lazy(() => import('../pages/Financial/Financial.jsx'));
@@ -57,6 +59,8 @@ export default function App() {
         <Route element={<AppLayout role="Admin" />}>
           <Route path="/admin" element={<Dashboard />} />
           <Route path="/admin/products" element={<Products />} />
+          <Route path="/admin/tryon" element={<AdminTryon />} />
+          <Route path="/admin/settings/tryon" element={<AISettings />} />
           <Route path="/admin/users" element={<Users />} />
           <Route path="/admin/packages" element={<AdminPackages />} />
           <Route path="/admin/financial" element={<Financial />} />

@@ -6,7 +6,10 @@
     "test": "node --test test/*.test.js",
     "test:payments:integration": "node --test test/integration/payments.test.js",
     "db:setup": "node src/database/setup.js",
-    "db:export": "node src/database/export.js"
+    "db:export": "node src/database/export.js",
+    "test:tryon:integration": "node --test test/integration/tryon.test.js",
+    "test:reviews:integration": "node --test test/integration/reviews.test.js",
+    "test:tryon:live": "node --test test/integration/tryonLive.test.js"
   },
   "dependencies": {
     "bcrypt": "latest",
@@ -20,7 +23,8 @@
     "morgan": "latest",
     "multer": "latest",
     "mysql2": "latest",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "nodemon": "latest"

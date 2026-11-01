@@ -1,0 +1,74 @@
+.camera-body-guide {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 10px;
+  overflow: hidden;
+  pointer-events: none;
+  background: transparent;
+  animation: camera-body-guide-appear 180ms ease-out both;
+}
+
+.camera-body-guide *, .camera-body-guide::before, .camera-body-guide::after {
+  pointer-events: none;
+}
+
+.camera-body-guide__drawing {
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  overflow: visible;
+}
+
+.camera-body-guide__drawing path,
+.camera-body-guide__drawing use {
+  vector-effect: non-scaling-stroke;
+}
+
+.camera-body-guide__angle {
+  paint-order: stroke fill;
+  stroke: #0066ff;
+  stroke-width: 1.5px;
+}
+
+.camera-body-guide__distance {
+  display: flex;
+  flex-direction: row-reverse;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 3px 12px;
+  border: 1px solid #00b8ff;
+  border-radius: 999px;
+  background: transparent;
+  color: #67e8ff;
+  box-shadow: 0 0 10px rgba(0, 145, 255, 0.25), inset 0 0 6px rgba(0, 145, 255, 0.12);
+  font-size: clamp(11px, 2.6vw, 14px);
+  font-weight: 700;
+  line-height: 1.6;
+  text-align: center;
+  text-shadow: 0 1px 2px #003b75, 0 0 5px #0066ff;
+}
+
+.camera-body-guide__distance svg { flex-shrink: 0; }
+.camera-body-guide__distance span {
+  -webkit-text-stroke: 0.35px #0066ff;
+  paint-order: stroke fill;
+}
+
+@keyframes camera-body-guide-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .camera-body-guide { animation: none; }
+}

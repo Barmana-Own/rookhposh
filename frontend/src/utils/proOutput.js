@@ -1,4 +1,6 @@
 import apiClient from '../services/apiClient.js';
+import { detectImageMime } from './proResponse.js';
+import { imageDownloadName } from './tryon.js';
 
 const providerHosts = new Set([
   '91.107.232.169',
@@ -74,6 +76,7 @@ export async function downloadProOutput(source, filename) {
   if (!source) throw new Error('خروجی پرو آنلاین برای دانلود وجود ندارد.');
 
   let blob;
+  let serverFilename;
   if (isDataImage(source)) {
     const response = await fetch(source);
     if (!response.ok) throw new Error('خواندن تصویر خروجی پرو آنلاین ممکن نیست.');
@@ -81,18 +84,27 @@ export async function downloadProOutput(source, filename) {
   } else {
     const response = await apiClient.get(getProOutputSource(source), {
       responseType: 'blob',
+      withCredentials: true,
       headers: { Accept: 'image/*' },
     });
     blob = response.data;
+    serverFilename = /filename="?([^";]+)"?/i.exec(response.headers['content-disposition'] || '')?.[1];
   }
 
-  const objectUrl = URL.createObjectURL(blob);
+  if (!blob?.size || blob.size > 12 * 1024 * 1024) throw new Error('اندازه فایل خروجی معتبر نیست.');
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const mime = detectImageMime(bytes, '');
+  const actualFilename = imageDownloadName(serverFilename || filename, mime);
+  const objectUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
   const anchor = document.createElement('a');
   anchor.href = objectUrl;
-  anchor.download = filename;
+  anchor.download = actualFilename;
+  anchor.target = '_self';
   anchor.rel = 'noopener';
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  // Safari/mobile downloads may read the blob after the click handler has finished.
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+  return { filename: actualFilename, mime, byte_size: bytes.length };
 }

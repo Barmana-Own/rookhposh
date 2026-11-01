@@ -16,6 +16,7 @@ const ApiError = require('../../src/utils/apiError');
 const app = require('../../src/app');
 
 test('seller payments settle safely in an isolated MariaDB database', { timeout: 60000 }, async (t) => {
+  await require('../../src/database/runtimeSetup').ensureRuntimeSchema();
   const previous = { ...omidpay };
   Object.assign(omidpay, {
     enabled: true, userId: 'test-user', password: 'test-only-password',

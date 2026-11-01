@@ -1,11 +1,16 @@
 const router = require('express').Router();
 const controller = require('../controllers/sellerController');
 const { authenticate, authorize, authorizeApprovedSeller } = require('../middlewares/authMiddleware');
+const reviewService = require('../services/productReviewService');
+const asyncHandler = require('../utils/asyncHandler');
 
 router.use(authenticate, authorize('Seller'), authorizeApprovedSeller);
 
 router.get('/dashboard', controller.dashboard);
 router.get('/products', controller.products);
+router.get('/products/:id/review-history', asyncHandler(async (req, res) => {
+  res.json({ success: true, data: await reviewService.history(req.params.id, req.query, req.user.id) });
+}));
 router.post('/products', controller.createProduct);
 router.patch('/products/:id', controller.updateProduct);
 router.patch('/products/:id/publish', controller.setProductPublishStatus);

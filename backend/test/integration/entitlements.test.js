@@ -16,15 +16,21 @@ const { ensureRuntimeSchema } = require('../../src/database/runtimeSetup');
 const ApiError = require('../../src/utils/apiError');
 const app = require('../../src/app');
 
-const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jJ9sAAAAASUVORK5CYII=';
+let image;
+const { createWorker } = require('../../src/tryon/worker');
+const { browser, waitJob } = require('../helpers/tryonFixture');
 
 test('purchased seller entitlements are usable, visible and spent once in real MariaDB transactions', { timeout: 90000 }, async (t) => {
   await ensureRuntimeSchema();
+  const png = await require('sharp')({ create: { width: 24, height: 32, channels: 3, background: 'purple' } }).png().toBuffer();
+  image = 'data:image/png;base64,' + png.toString('base64');
+  const worker = createWorker({ providerClient: { generate: async () => ({ bytes: png }) } });
+  worker.start();
   const previous = { ...omidpay };
   Object.assign(omidpay, { enabled: true, userId: 'test-user', password: 'test-only-password', terminalId: '10000001', merchantId: '10000002',
     callbackBaseUrl: 'https://shop.test/api/payments/omidpay/callback', frontendUrl: 'https://shop.test' });
   t.after(() => Object.assign(omidpay, previous));
-  t.after(() => pool.end());
+  t.after(async () => { await worker.stop(); await pool.end(); });
   t.mock.method(console, 'warn', () => undefined);
   app.set('trust proxy', 'loopback');
   const server = app.listen(0, '127.0.0.1');
@@ -49,11 +55,15 @@ test('purchased seller entitlements are usable, visible and spent once in real M
     return { reference: payment.reference, amountRial };
   });
   let nextIp = 10;
+  const cookies = new Map();
+  const jobs = new Map();
   async function api(path, { method = 'GET', token, body, ip = '203.0.113.1', expected = 200, forwarded } = {}) {
     const headers = { Accept: 'application/json', 'X-Forwarded-For': forwarded || ip };
+    if (cookies.has(ip)) headers.Cookie = cookies.get(ip);
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     const response = await fetch(origin + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: 'manual' });
+    const set = response.headers.get('set-cookie'); if (set) cookies.set(ip, set.split(';')[0]);
     const raw = await response.text();
     assert.equal(response.status, expected, `${method} ${path}: ${raw.slice(0, 180)}`);
     return { response, data: response.headers.get('content-type')?.includes('application/json') ? JSON.parse(raw).data : null };
@@ -91,7 +101,24 @@ test('purchased seller entitlements are usable, visible and spent once in real M
     return (await api(account.path + '/upload', { method: 'POST', ip, body: { image, file_name: 'fixture.png', ...extra } })).data.id;
   }
   async function use(account, uploadId, { expected = 200, ip = account.ip, ...extra } = {}) {
-    return (await api(account.path + '/use', { method: 'POST', expected, ip, body: { upload_id: uploadId, output_image: image, ...extra } })).data;
+    const previous = jobs.get(uploadId);
+    const client = browser(origin);
+    client.request = async (path, options = {}) => nativeFetch(origin + path, {
+      ...options, headers: { 'content-type': 'application/json', Cookie: cookies.get(ip) || '', ...options.headers },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+    if (previous?.status === 'failed') {
+      const retry = await client.json('/api/tryon/jobs/' + previous.id + '/retry', { method: 'POST', body: { request_key: randomUUID() } });
+      assert.equal(retry.status, 202); const done = await waitJob(client, previous.id); assert.equal(done.status, 'completed'); jobs.set(uploadId, done);
+    } else {
+      const started = await api(account.path + '/jobs', { method: 'POST', ip, expected: expected >= 400 && expected !== 500 ? expected : 202,
+        body: { image, image_index: 0, request_key: 'entitlement-upload-' + String(uploadId).padStart(16, '0'), processing_consent: true, ...extra } });
+      if (expected >= 400 && expected !== 500) return started.data;
+      const done = await waitJob(client, started.data.id); jobs.set(uploadId, done);
+      if (expected === 500) { assert.equal(done.status, 'failed'); assert.equal(done.error_code, 'SAVE_FAILED'); return done; }
+      assert.equal(done.status, 'completed');
+    }
+    return (await api(account.path + '/quota', { ip })).data;
   }
 
   await t.test('bank-confirmed package appears on the dashboard and unlocks store-funded guest usage', async (scope) => {
@@ -115,7 +142,7 @@ test('purchased seller entitlements are usable, visible and spent once in real M
     assert.equal((await dashboard(account)).tokens_remaining, 29);
     const [[usage]] = await pool.query('SELECT user_id,quota_user_id,amount,quota_source FROM pro_usages WHERE quota_user_id=?', [account.id]);
     assert.equal(usage.user_id, null); assert.equal(Number(usage.quota_user_id), account.id); assert.equal(Number(usage.amount), 0); assert.equal(usage.quota_source, 'subscription');
-    await use(account, uploaded, { expected: 409 });
+    await use(account, uploaded);
     assert.equal((await dashboard(account)).tokens_remaining, 29);
   });
 
@@ -148,11 +175,17 @@ test('purchased seller entitlements are usable, visible and spent once in real M
     const account = await fixture(scope, 1); await wallet(account); await buyPackage(account);
     const otherIp = `203.0.113.${nextIp++}`;
     const first = await upload(account); const second = await upload(account, otherIp);
-    const responses = await Promise.all([account.ip, otherIp].map((ip, index) => fetch(origin + account.path + '/use', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, body: JSON.stringify({ upload_id: index ? second : first, output_image: image }),
+    const responses = await Promise.all([account.ip, otherIp].map((ip, index) => nativeFetch(origin + account.path + '/jobs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip, Cookie: cookies.get(ip) },
+      body: JSON.stringify({ image, image_index: 0, request_key: randomUUID(), processing_consent: true }),
     })));
-    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 402]);
-    await Promise.all(responses.map((response) => response.arrayBuffer()));
+    assert.deepEqual(responses.map((response) => response.status).sort(), [202, 402]);
+    for (const [index, response] of responses.entries()) {
+      const body = await response.json(); if (response.status === 202) {
+        const client = browser(origin); client.request = (path) => nativeFetch(origin + path, { headers: { Cookie: cookies.get(index ? otherIp : account.ip) } });
+        assert.equal((await waitJob(client, body.data.id)).status, 'completed');
+      }
+    }
     assert.equal((await dashboard(account)).tokens_remaining, 0);
   });
 
@@ -210,12 +243,12 @@ test('purchased seller entitlements are usable, visible and spent once in real M
     assert.equal(rows.length, 1); assert.equal(rows[0].id, before.id); assert.equal(rows[0].expires_at.getTime(), before.expires_at.getTime()); assert.equal(rows[0].pro_requests_count, 30);
   });
 
-  await t.test('uploads are bound to the store product and the nearest trusted client IP', async (scope) => {
+  await t.test('an upload from another product is rejected and proxy IP does not replace the private session', async (scope) => {
     const account = await fixture(scope); const other = await fixture(scope); await wallet(account); await buyPackage(account);
     const wrong = await upload(other, account.ip);
-    await use(account, wrong, { expected: 409 }); assert.equal((await dashboard(account)).tokens_remaining, 30);
+    await api(account.path + '/use', { method: 'POST', ip: account.ip, expected: 409, body: { upload_id: wrong, output_image: image } }); assert.equal((await dashboard(account)).tokens_remaining, 30);
     const own = await upload(account);
-    await api(account.path + '/use', { method: 'POST', ip: account.ip, forwarded: `198.51.100.99, ${account.ip}`, body: { upload_id: own, output_image: image } });
+    await use(account, own);
     assert.equal((await dashboard(account)).tokens_remaining, 29);
     assert.equal((await dashboard(other)).tokens_remaining, 0);
   });

@@ -7,6 +7,7 @@
 .dark { color-scheme: dark; }
 
 html { overflow-x: hidden; }
+html, body, #root { width: 100%; max-width: 100%; min-width: 0; }
 *, *::before, *::after { box-sizing: border-box; }
 img, svg, video, canvas { max-width: 100%; }
 button, input, textarea, select { max-width: 100%; }
@@ -35,6 +36,7 @@ body {
 .skeleton { @apply animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800; }
 
 @media (max-width: 639px) {
+  .page-header-action { width: 100%; }
   .page { @apply space-y-4; }
   .page h1 { @apply text-2xl; }
   .card { @apply rounded-2xl p-4; }

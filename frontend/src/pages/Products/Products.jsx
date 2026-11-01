@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import AdminPagination from '../../components/admin/AdminPagination.jsx';
-import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx';
+import AccessibleModal from '../../components/ui/AccessibleModal.jsx';
+import ProductReviewDetail from '../../components/admin/ProductReviewDetail.jsx';
+import RejectionReasons from '../../components/admin/RejectionReasons.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
 import { useAsyncResource } from '../../hooks/useAsyncResource.js';
 import apiClient from '../../services/apiClient.js';
@@ -49,11 +51,8 @@ export default function Products() {
     [tab, page],
     { pollMs: 4000, keepPreviousData: true },
   );
-  const [approveDialog, setApproveDialog] = useState(null);
-  const [rejectDialog, setRejectDialog] = useState(null);
-  const [rejectReason, setRejectReason] = useState('');
-  const [busyId, setBusyId] = useState(null);
-  const [actionError, setActionError] = useState('');
+  const [detailId, setDetailId] = useState(null);
+  const [reasonSettings, setReasonSettings] = useState(false);
 
   const rows = useMemo(() => (Array.isArray(response) ? response : response?.items || []), [response]);
   const pagination = Array.isArray(response) ? null : response?.pagination;
@@ -75,42 +74,6 @@ export default function Products() {
     });
   };
 
-  const approve = async () => {
-    if (!approveDialog || busyId) return;
-    const id = approveDialog.id;
-    setBusyId(id);
-    setActionError('');
-    try {
-      await apiClient.patch(`/api/admin/products/${id}/approve`);
-      removeReviewedRow(id);
-      setApproveDialog(null);
-      reload();
-    } catch (error) {
-      setActionError(error.message || 'تایید محصول انجام نشد.');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const reject = async () => {
-    const reason = rejectReason.trim();
-    if (!reason || !rejectDialog || busyId) return;
-    const id = rejectDialog.id;
-    setBusyId(id);
-    setActionError('');
-    try {
-      await apiClient.patch(`/api/admin/products/${id}/reject`, { reject_reason: reason });
-      removeReviewedRow(id);
-      setRejectDialog(null);
-      setRejectReason('');
-      reload();
-    } catch (error) {
-      setActionError(error.message || 'رد محصول انجام نشد.');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   return (
     <section className="page">
       <div>
@@ -118,8 +81,8 @@ export default function Products() {
         <p className="text-slate-500">صف بررسی به‌صورت صفحه‌ای و زنده بارگذاری می‌شود؛ نتیجه تایید یا رد بدون رفرش دستی اعمال می‌شود.</p>
       </div>
 
-      {actionError && <div className="card border-rose-200 bg-rose-50 text-sm font-bold text-rose-700">{actionError}</div>}
 
+      <button className="btn-soft self-start" onClick={() => setReasonSettings(true)}>مدیریت دلایل رد محصول</button>
       <div className="card flex flex-wrap gap-2">
         {tabs.map(([value, label]) => (
           <button key={value} onClick={() => { setTab(value); setPage(1); }} className={tab === value ? 'btn-primary' : 'btn-soft'}>
@@ -147,50 +110,15 @@ export default function Products() {
             ),
           },
         ]}
-        renderActions={(row) => {
-          const reviewable = tab === 'pending' && (row.status === 'pending' || Boolean(row.pending_changes));
-          return (
-            <div className="flex gap-2">
-              {reviewable && <button className="btn-primary" disabled={busyId === row.id} onClick={() => setApproveDialog(row)}>تایید لباس</button>}
-              {reviewable && (
-                <button
-                  className="btn-soft"
-                  disabled={busyId === row.id}
-                  onClick={() => {
-                    setRejectDialog(row);
-                    setRejectReason(row.reject_reason || '');
-                  }}
-                >
-                  رد + علت
-                </button>
-              )}
-            </div>
-          );
-        }}
+        renderActions={(row) => <button className="btn-soft" onClick={() => setDetailId(row.id)}>جزئیات</button>}
       />
 
       <AdminPagination pagination={pagination} onPageChange={setPage} />
 
-      <ConfirmDialog open={Boolean(approveDialog)} title="تایید لباس" busy={Boolean(busyId)} onClose={() => setApproveDialog(null)} onConfirm={approve} />
-
-      {rejectDialog && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
-          <div className="glass w-full max-w-lg rounded-3xl p-6">
-            <h3 className="text-xl font-black">ثبت علت رد محصول</h3>
-            <p className="mt-2 text-sm text-slate-500">این علت برای فروشگاه ارسال و در وضعیت محصول ذخیره می‌شود.</p>
-            <textarea
-              className="input mt-4 min-h-36 w-full"
-              value={rejectReason}
-              onChange={(event) => setRejectReason(event.target.value)}
-              placeholder="علت رد محصول را بنویسید..."
-            />
-            <div className="mt-5 flex gap-3">
-              <button className="btn-primary" disabled={!rejectReason.trim() || Boolean(busyId)} onClick={reject}>{busyId ? 'در حال ثبت...' : 'ثبت رد'}</button>
-              <button className="btn-soft" onClick={() => { setRejectDialog(null); setRejectReason(''); }}>انصراف</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AccessibleModal open={Boolean(detailId)} onClose={() => setDetailId(null)} title="بررسی جزئیات محصول" wide>
+        {detailId && <ProductReviewDetail key={detailId} id={detailId} onReviewed={(id) => { if (tab === 'pending') removeReviewedRow(id); reload(); }} />}
+      </AccessibleModal>
+      <AccessibleModal open={reasonSettings} onClose={() => setReasonSettings(false)} title="مدیریت دلایل رد محصول" wide><RejectionReasons /></AccessibleModal>
     </section>
   );
 }

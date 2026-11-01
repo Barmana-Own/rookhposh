@@ -10,6 +10,8 @@ import { accountHome } from '../../utils/authNavigation.js';
 const titles = {
   '/admin': 'داشبورد مدیریت',
   '/admin/products': 'بررسی محصولات',
+  '/admin/tryon': 'پرو آنلاین',
+  '/admin/settings/tryon': 'تنظیمات هوش مصنوعی پرو مجازی',
   '/admin/users': 'کاربران و فروشگاه‌ها',
   '/admin/packages': 'مدیریت پکیج‌ها',
   '/admin/financial': 'گزارش مالی',

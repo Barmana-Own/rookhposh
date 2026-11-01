@@ -1,0 +1,8 @@
+.tryon-progress-track{height:11px;border-radius:999px;background:#edf1fb;position:relative;direction:ltr;overflow:visible}
+.tryon-progress-fill,.tryon-progress-wait{display:block;height:100%;border-radius:999px;background:#635bff;position:relative;transition:width 300ms ease}
+.tryon-progress-dot{position:absolute;right:0;top:50%;width:13px;height:13px;transform:translate(35%,-50%);border-radius:999px;background:#948cff}
+.tryon-progress-wait{width:30%;animation:tryon-wait 1.6s ease-in-out infinite alternate}
+@keyframes tryon-wait{from{transform:translateX(5%)}to{transform:translateX(220%)}}
+.tryon-accordion{display:grid;grid-template-rows:0fr;transition:grid-template-rows 300ms ease}
+.tryon-accordion[data-open=true]{grid-template-rows:1fr}
+@media(prefers-reduced-motion:reduce){.tryon-progress-fill,.tryon-progress-wait,.tryon-accordion{animation:none;transition:none}.tryon-progress-wait{margin-left:35%}}

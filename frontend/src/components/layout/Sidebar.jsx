@@ -9,6 +9,8 @@ import {
   PackagePlus,
   QrCode,
   ShoppingBag,
+  Shirt,
+  Settings,
   Store,
   Users,
   Wallet,
@@ -23,6 +25,7 @@ const menuByRole = {
     items: [
       ['/admin', 'داشبورد مدیریت', LayoutDashboard],
       ['/admin/products', 'محصولات', Boxes],
+      ['/admin/tryon', 'پرو آنلاین', Shirt],
       ['/admin/users', 'کاربران', Users],
       ['/admin/packages', 'پکیج‌ها', ShoppingBag],
       ['/admin/financial', 'گزارش مالی', Wallet],
@@ -97,6 +100,7 @@ function SidebarContent({ onClose }) {
       <nav>
         <p className="mb-2 px-4 text-xs font-black text-slate-400">{menu.section}</p>
         <div className="space-y-2">{menu.items.map((item) => <NavItem key={item[0]} item={item} onClick={onClose} />)}</div>
+        {user?.role === 'Admin' && <div className="mt-5 space-y-2"><p className="px-4 text-xs font-black text-slate-400">تنظیمات</p><NavItem item={['/admin/settings/tryon', 'تنظیمات هوش مصنوعی پرو مجازی', Settings]} onClick={onClose} /></div>}
       </nav>
 
       <button className="mt-6 flex w-full items-center justify-between gap-3 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-black text-rose-600 transition hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300" onClick={exit}>
@@ -117,7 +121,7 @@ export default function Sidebar({ open, onClose }) {
         className={`fixed inset-0 z-40 bg-slate-950/45 transition lg:hidden ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         onClick={onClose}
       />
-      <aside className={`fixed inset-y-0 right-0 z-50 w-72 p-3 transition duration-300 lg:hidden ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+      <aside aria-hidden={!open} inert={open ? undefined : true} className={`fixed inset-y-0 right-0 z-50 w-72 p-3 transition duration-300 lg:hidden ${open ? 'translate-x-0' : 'translate-x-full'}`}>
         <SidebarContent onClose={onClose} />
       </aside>
     </>

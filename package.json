@@ -6,9 +6,11 @@
     "db:setup": "npm run db:setup --prefix backend",
     "db:export": "npm run db:export --prefix backend",
     "test": "npm run lint && npm run test:unit",
-    "test:unit": "npm run test --prefix backend && node --test frontend/test/*.test.mjs"
+    "test:unit": "npm run test --prefix backend && node --test frontend/test/*.test.mjs",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "@playwright/test": "1.64.1"
   }
 }

@@ -8,10 +8,10 @@ const sellerRoutes = require('./routes/sellerRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const storeRoutes = require('./routes/storeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const { corsOrigin, jsonLimit, proApiBodyLimit, proApiOrigin, trustProxy } = require('./config/env');
+const { corsOrigin, jsonLimit, proApiBodyLimit, trustProxy } = require('./config/env');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { basicRateLimit, hardenHeaders } = require('./middleware/security');
-const { createProApiProxy, createProOutputProxy } = require('./middleware/proApiProxy');
+const tryon = require('./tryon/routes');
 
 const app = express();
 
@@ -19,14 +19,20 @@ app.disable('x-powered-by');
 app.set('trust proxy', trustProxy);
 app.use(helmet());
 app.use(hardenHeaders);
-app.use(cors({ origin: corsOrigin, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], credentials: true }));
+app.use(cors({ origin: corsOrigin, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], credentials: true,
+  exposedHeaders: ['Content-Disposition', 'X-Image-Width', 'X-Image-Height'] }));
 app.use(basicRateLimit);
-app.use('/pro-api', express.raw({ type: '*/*', limit: proApiBodyLimit }), createProApiProxy(proApiOrigin));
-app.get('/api/pro-output', createProOutputProxy(proApiOrigin));
-app.use(express.json({ limit: jsonLimit }));
+app.use('/pro-api', express.raw({ type: '*/*', limit: proApiBodyLimit, inflate: false }), tryon.legacyRouter);
+app.get('/api/pro-output', ...tryon.legacyOutput);
+const tryonJson = express.json({ limit: '17mb', inflate: false });
+app.use('/api/stores', (req, res, next) => req.method === 'POST' && /^\/[^/]+\/products\/[^/]+\/pro\/jobs\/?$/i.test(req.path)
+  ? tryonJson(req, res, next) : next());
+app.use(express.json({ limit: jsonLimit, inflate: false }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
   // Bank callbacks may put a token in the query string; never write it to access logs.
-  skip: (req) => /^\/api\/payments\/omidpay\/callback\//i.test(req.originalUrl),
+  skip: (req) => /^\/api\/payments\/omidpay\/callback\//i.test(req.originalUrl)
+    || /^\/api\/(?:tryon|admin\/tryon)(?:\/|$)/i.test(req.originalUrl)
+    || /^\/api\/stores\/[^/]+\/products\/[^/]+\/pro\//i.test(req.originalUrl),
 }));
 
 app.use('/api/auth', authRoutes);
@@ -37,9 +43,13 @@ app.use('/api/admin', (req, res, next) => {
   res.setHeader('Expires', '0');
   next();
 });
+app.use('/api/admin', require('./routes/productReviewRoutes'));
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/tryon', tryon.adminRouter);
+app.use('/api/tryon', tryon.router);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/stores', tryon.storeRouter);
 app.use('/api/stores', storeRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use(notFound);

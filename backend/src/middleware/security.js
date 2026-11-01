@@ -3,8 +3,12 @@ const MAX_REQUESTS = 240;
 const buckets = new Map();
 
 function basicRateLimit(req, res, next) {
-  const key = req.ip || req.headers['x-forwarded-for'] || 'anonymous';
+  const key = req.ip || 'anonymous';
   const now = Date.now();
+  if (!buckets.has(key) && buckets.size >= 10000) {
+    for (const [address, bucket] of buckets) if (bucket.resetAt < now) buckets.delete(address);
+    if (buckets.size >= 10000) return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
   const current = buckets.get(key) || { count: 0, resetAt: now + WINDOW_MS };
 
   if (now > current.resetAt) {

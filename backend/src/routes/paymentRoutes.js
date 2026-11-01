@@ -24,7 +24,7 @@ const callback = asyncHandler(async (req, res) => {
   res.redirect(303, service.resultUrl(req.params.id));
 });
 
-router.post('/omidpay/callback/:id', express.urlencoded({ extended: false, limit: '8kb', parameterLimit: 25 }), callback);
+router.post('/omidpay/callback/:id', express.urlencoded({ extended: false, limit: '8kb', parameterLimit: 25, inflate: false }), callback);
 router.get('/omidpay/callback/:id', callback);
 
 router.get('/:id', authenticate, authorize('User', 'Seller'), asyncHandler(async (req, res) => {

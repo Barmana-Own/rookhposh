@@ -6,8 +6,8 @@ const ok = (res, data) => res.json({ success: true, data });
 
 exports.dashboard = asyncHandler(async (req, res) => ok(res, await service.dashboard()));
 exports.products = asyncHandler(async (req, res) => ok(res, await service.products(req.query)));
-exports.approveProduct = asyncHandler(async (req, res) => ok(res, await service.approveProduct(toNumber(req.params.id))));
-exports.rejectProduct = asyncHandler(async (req, res) => ok(res, await service.rejectProduct(toNumber(req.params.id), req.body.reject_reason)));
+exports.approveProduct = asyncHandler(async (req, res) => ok(res, await service.approveProduct(toNumber(req.params.id), req.user.id, req.body)));
+exports.rejectProduct = asyncHandler(async (req, res) => ok(res, await service.rejectProduct(toNumber(req.params.id), req.user.id, req.body)));
 
 exports.users = asyncHandler(async (req, res) => ok(res, await service.users(req.query)));
 exports.exportUsers = asyncHandler(async (req, res) => {
