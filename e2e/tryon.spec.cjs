@@ -87,7 +87,9 @@ test('recoverable AI failure offers controlled retry and preserves last output',
 
 test('admin logs, protected image details and masked provider settings render real database records', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith('mobile'), 'Desktop admin review covered separately; mobile try-on/download is above.');
-  await page.addInitScript((token) => localStorage.setItem('marketplace_token', token), fixture.admin.token);
+  // Set the fixture session inside the application origin before administrative navigation.
+  await page.goto('/seller', { waitUntil: 'domcontentloaded' });
+  await page.evaluate((token) => localStorage.setItem('marketplace_token', token), fixture.admin.token);
   await page.goto('/admin/tryon', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'پرو آنلاین', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'جزئیات', exact: true }).first().click();
