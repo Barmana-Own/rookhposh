@@ -1,6 +1,6 @@
 import { Bell, LogOut, Menu, Moon, Search, Sun, UserCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import apiClient from '../../services/apiClient.js';
@@ -38,13 +38,22 @@ async function readNotifications(role) {
   return undefined;
 }
 
+function ProductSearchInput({ initialQuery, onSearch }) {
+  const [query, setQuery] = useState(initialQuery);
+  return <input className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+    maxLength={120} aria-label="جستجوی سراسری محصولات" value={query}
+    onChange={event => setQuery(event.target.value)}
+    onKeyDown={event => { if (event.key === 'Enter') onSearch(query); }}
+    placeholder="جستجو و رفتن به بخش مرتبط..." />;
+}
+
 export default function Topbar({ onMenuClick }) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const profileRef = useRef(null);
   const notificationsRef = useRef(null);
-  const [query, setQuery] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -88,9 +97,11 @@ export default function Topbar({ onMenuClick }) {
     };
   }, [user?.role]);
 
-  const submitSearch = (event) => {
-    if (event.key !== 'Enter' || !query.trim()) return;
-    navigate(`${routes.search}?q=${encodeURIComponent(query.trim())}`);
+  const submitSearch = (query) => {
+    const params = new URLSearchParams(location.pathname === routes.search ? location.search : '');
+    params.delete('page');
+    if (query.trim()) params.set('q', query.trim()); else params.delete('q');
+    navigate({ pathname: routes.search, search: params.toString() });
   };
 
   const unreadCount = notifications.filter((item) => item.unread).length;
@@ -128,13 +139,7 @@ export default function Topbar({ onMenuClick }) {
       <div className="flex items-center gap-3" dir="ltr">
         <div className="hidden min-w-0 flex-1 items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2 dark:bg-slate-800 md:flex" dir="rtl">
           <Search size={18} className="shrink-0 text-slate-400" />
-          <input
-            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={submitSearch}
-            placeholder="جستجو و رفتن به بخش مرتبط..."
-          />
+          <ProductSearchInput key={location.key} initialQuery={new URLSearchParams(location.search).get('q') || ''} onSearch={submitSearch} />
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2" dir="ltr">

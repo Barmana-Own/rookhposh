@@ -1,3 +1,6 @@
+const { searchClause } = require('../utils/productSearch');
+const { requireBankInfo } = require('../services/bankInfo');
+const { validateReceipt } = require('../services/paymentReceipt');
 const bcrypt = require('bcrypt');
 const pool = require('../config/database');
 const { unlimitedProUserMobiles } = require('../config/env');
@@ -485,6 +488,7 @@ async function listProducts({
   includeReviewStats = true,
   excludePendingChanges = false,
   compactImages = false,
+  includeUnpublished = false,
 } = {}) {
   const where = [];
   const params = [];
@@ -501,7 +505,7 @@ async function listProducts({
     if (status === 'pending') {
       where.push('(p.status="pending" OR p.pending_changes IS NOT NULL)');
     } else if (status === 'active') {
-      where.push('p.status="active" AND COALESCE(p.publish_status, "active")="active"');
+      where.push(includeUnpublished ? 'p.status="active"' : 'p.status="active" AND COALESCE(p.publish_status, "active")="active"');
       if (excludePendingChanges) where.push('p.pending_changes IS NULL');
     } else if (status === 'rejected') {
       where.push('(p.status="rejected" OR p.review_status="rejected")');
@@ -510,10 +514,8 @@ async function listProducts({
       params.push(status);
     }
   }
-  if (search) {
-    where.push('(p.title LIKE ? OR p.description LIKE ? OR u.fullname LIKE ?)');
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-  }
+  const match = searchClause(search);
+  if (match) { where.push(match.sql); params.push(...match.params); }
 
   const paginated = includeMeta || page != null || limit != null;
   const pagination = paginated ? normalizePagination(page, limit, 50) : null;
@@ -1018,24 +1020,24 @@ function normalizePaymentMethod(method) {
 }
 
 async function createPendingPayment(userId, amount, transaction) {
-  const normalizedAmount = toNumber(amount);
-  const [result] = await pool.query(
-    `INSERT INTO transactions(
-      user_id,seller_id,product_id,package_id,type,amount,status,description,metadata
-    ) VALUES(?,?,?,?,?,?,?,?,?)`,
-    [
-      userId,
-      transaction.seller_id || null,
-      transaction.product_id || null,
-      transaction.package_id || null,
-      transaction.type,
-      normalizedAmount,
-      'pending',
-      transaction.description,
-      JSON.stringify({ ...transaction.metadata, source: 'bank_transfer' }),
-    ],
-  );
-  return result.insertId;
+  const normalizedAmount = amountInRials(amount) / 10;
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[setting]] = await connection.query('SELECT value FROM app_settings WHERE app_settings.key=? FOR UPDATE', ['bank_info']);
+    const recipient = requireBankInfo(setting?.value);
+    const receipt = validateReceipt(transaction.metadata?.receipt);
+    const [result] = await connection.query(
+      'INSERT INTO transactions(user_id,seller_id,product_id,package_id,type,amount,status,description,metadata) VALUES(?,?,?,?,?,?,?,?,?)',
+      [userId, transaction.seller_id || null, transaction.product_id || null, transaction.package_id || null,
+        transaction.type, normalizedAmount, 'pending', transaction.description,
+        JSON.stringify({ ...transaction.metadata, receipt, bank_recipient: recipient, source: 'bank_transfer', payment_method: 'bank_transfer' })],
+    );
+    await connection.commit();
+    return result.insertId;
+  } catch (error) {
+    await connection.rollback(); throw error;
+  } finally { connection.release(); }
 }
 
 async function createGatewayPayment(userId, amount, transaction, requestKey) {

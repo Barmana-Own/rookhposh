@@ -20,3 +20,16 @@ export function receiptUrlOf(row = {}) {
     return '';
   }
 }
+
+const paymentMethods = { wallet: 'اعتبار کیف پول', bank_transfer: 'واریز بانکی', direct_gateway: 'درگاه اینترنتی' };
+
+export function paymentMethodOf(row = {}) {
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+  if (Object.hasOwn(paymentMethods, metadata.payment_method)) return metadata.payment_method;
+  if (Object.hasOwn(paymentMethods, metadata.source)) return metadata.source;
+  return null;
+}
+
+export function paymentMethodLabel(row = {}) {
+  return paymentMethods[paymentMethodOf(row)] || 'روش نامشخص';
+}

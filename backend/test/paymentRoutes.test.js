@@ -3,6 +3,7 @@ const test = require('node:test');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const service = require('../src/services/paymentService');
+const db = require('../src/repositories/dbStore');
 const router = require('../src/routes/paymentRoutes');
 const { errorHandler } = require('../src/middleware/errorHandler');
 const { jwtSecret, omidpay } = require('../src/config/env');
@@ -10,6 +11,7 @@ const { jwtSecret, omidpay } = require('../src/config/env');
 const id = 'a'.repeat(32);
 
 async function application(t, enabled = true) {
+  t.mock.method(db, 'findUserById', async (userId) => ({ id: userId, role: userId === 4 ? 'Admin' : 'Seller', status: 'active', seller_verification_status: 'approved' }));
   const previous = omidpay.enabled;
   omidpay.enabled = enabled;
   t.after(() => { omidpay.enabled = previous; });
@@ -36,7 +38,7 @@ test('disabled bank callbacks do not attempt verification or fulfillment', async
 });
 
 function headers(role = 'Seller') {
-  return { Authorization: `Bearer ${jwt.sign({ id: 3, role }, jwtSecret)}`, 'Content-Type': 'application/json' };
+  return { Authorization: `Bearer ${jwt.sign({ id: role === 'Admin' ? 4 : 3, role }, jwtSecret)}`, 'Content-Type': 'application/json' };
 }
 
 test('payment status and reconciliation require authentication and an allowed role', async (t) => {

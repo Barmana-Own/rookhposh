@@ -23,8 +23,8 @@ apiClient.interceptors.response.use(
   (error) =>
     Promise.reject({
       message: toPersianMessage(error.response?.data?.message || error.message, 'خطای غیرمنتظره در ارتباط با سرور'),
-      status: error.response?.status || 500,
-      code: error.response?.data?.code,
+      status: error.response?.status ?? 0,
+      code: error.response?.data?.code || error.code || 'NETWORK_ERROR',
       job_id: error.response?.data?.job_id,
       errors: normalizeApiErrors(error.response?.data?.errors || []),
     }),

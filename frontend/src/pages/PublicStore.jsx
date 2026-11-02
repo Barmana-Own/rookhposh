@@ -1,6 +1,7 @@
 import { LogIn, Phone, Store } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useAsyncResource } from '../hooks/useAsyncResource.js';
 import { Link, useParams } from 'react-router-dom';
 import ProductCard2 from '../components/ui/ProductCard2.jsx';
 import apiClient from '../services/apiClient.js';
@@ -25,24 +26,27 @@ const itemVariants = {
 
 export default function PublicStore() {
   const { slug } = useParams();
-  const [store, setStore] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    apiClient
-      .get(`/api/stores/${slug}`)
-      .then((response) => setStore(response.data.data))
-      .catch((fetchError) => setError(fetchError.message));
-  }, [slug]);
+  const { data: store, loading, error, reload } = useAsyncResource(
+    async () => (await apiClient.get('/api/stores/' + encodeURIComponent(slug))).data.data,
+    [slug],
+  );
 
   const products = useMemo(() => store?.products || [], [store]);
 
-  if (error) {
-    return <main dir="rtl" className="grid min-h-screen place-items-center bg-[#eef2ff] p-6 text-rose-600 dark:bg-slate-950 dark:text-rose-300">{error}</main>;
+  if (loading) {
+    return <main dir="rtl" role="status" className="grid min-h-screen place-items-center bg-[#eef2ff] p-6 font-black text-slate-950 dark:bg-slate-950 dark:text-white">در حال دریافت فروشگاه...</main>;
   }
 
-  if (!store) {
-    return <main dir="rtl" className="grid min-h-screen place-items-center bg-[#eef2ff] p-6 font-black text-slate-950 dark:bg-slate-950 dark:text-white">در حال دریافت فروشگاه...</main>;
+  if (error || !store) {
+    const missing = error?.status === 404 || (!error && !store);
+    return <main dir="rtl" className="grid min-h-screen place-items-center bg-[#eef2ff] p-6 text-slate-950 dark:bg-slate-950 dark:text-white">
+      <section className="card max-w-lg space-y-4 text-center">
+        <h1 className="text-xl font-black">{missing ? 'فروشگاه موردنظر یافت نشد' : error?.status === 0 ? 'ارتباط با سرور برقرار نشد' : 'دریافت فروشگاه موقتاً ممکن نیست'}</h1>
+        <p className="text-sm leading-7 text-slate-500">{missing ? 'آدرس فروشگاه را بررسی کنید یا به صفحه اصلی رخ‌پوش برگردید.' : 'لطفاً اتصال خود را بررسی کنید و دوباره تلاش کنید.'}</p>
+        {!missing && <button className="btn-primary" onClick={reload}>تلاش مجدد</button>}
+        <a className="btn-soft" href="https://rookhposh.ir">بازگشت به صفحه اصلی</a>
+      </section>
+    </main>;
   }
 
   return (
@@ -91,10 +95,10 @@ export default function PublicStore() {
         <div className="mt-10 flex justify-end">
           <Link
             className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/70 px-4 py-2 text-sm font-bold text-slate-700 shadow-soft backdrop-blur-xl transition hover:border-indigo-300 hover:text-indigo-600 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-amber-400/50 dark:hover:text-amber-300"
-            to={`/login?store=${slug}`}
+            to="/seller"
           >
             <LogIn size={17} />
-            ورود یا ثبت‌نام با این فروشگاه
+            ورود فروشندگان
           </Link>
         </div>
 

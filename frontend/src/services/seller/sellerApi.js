@@ -2,6 +2,7 @@ import apiClient from '../apiClient';
 import { faDate, faDateTime, formatMoney } from '../../utils/formatters';
 import { getProductImages } from '../../utils/productImage';
 import { sellerEntitlementStats } from '../../utils/sellerEntitlements.js';
+import { financialTypeLabel, paymentMethodLabel } from '../../utils/financialReport.js';
 
 const faStatus = (status) => ({
   pending: 'در انتظار بررسی',
@@ -41,8 +42,10 @@ export const sellerApi = {
   },
 
   async getProducts(search = '') {
-    const response = await apiClient.get(`/api/seller/products${search ? `?q=${encodeURIComponent(search)}` : ''}`);
-    return response.data.data.map((item) => ({
+    const params = typeof search === 'object' ? search : { q: search };
+    const response = await apiClient.get('/api/seller/products', { params });
+    const payload = response.data.data;
+    const items = (Array.isArray(payload) ? payload : payload.items).map((item) => ({
       ...item,
       features: item.features || [],
       images: getProductImages(item),
@@ -60,6 +63,7 @@ export const sellerApi = {
       reviewCount: Number(item.review_count || 0),
       created_at: faDate(item.created_at),
     }));
+    return Array.isArray(payload) ? items : { ...payload, items };
   },
 
   async createProduct(payload) {
@@ -98,6 +102,10 @@ export const sellerApi = {
     return response.data;
   },
 
+  async getProUsages(params) {
+    return (await apiClient.get('/api/seller/pro-usages', { params })).data.data;
+  },
+
   async getTransactions() {
     const response = await apiClient.get('/api/seller/transactions');
     return response.data.data.map((item) => ({
@@ -124,7 +132,8 @@ export const sellerApi = {
       history: (transactions.data.data || []).map((item) => ({
         id: item.id,
         amount: formatMoney(item.amount),
-        method: item.type,
+        method: paymentMethodLabel(item),
+        transactionType: financialTypeLabel(item),
         date: faDateTime(item.created_at),
         status: faStatus(item.status),
       })),

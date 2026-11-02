@@ -3,6 +3,9 @@ const { exportWorkbook, exportWorkbookSheets } = require('../utils/excelExport')
 const { toNumber } = require('../utils/number');
 const financial = require('../repositories/financialStore');
 const productReviews = require('./productReviewService');
+const bank = require('./bankInfo');
+const { productStatus, productPagination } = require('../utils/productSearch');
+const ApiError = require('../utils/apiError');
 
 const userStatusLabel = { active: 'فعال', blocked: 'مسدود' };
 const sellerVerificationLabel = {
@@ -54,15 +57,14 @@ function exportSellerRow(row) {
 
 exports.dashboard = async () => db.dashboardFor('Admin');
 exports.products = async (query = {}) => db.listProducts({
-  status: query.status || 'pending',
+  status: productStatus(query.status, query.q ? undefined : 'pending'),
   search: query.q,
-  page: query.page,
-  limit: query.limit,
+  ...productPagination(query),
   includeMeta: true,
   imageLimit: query.status === 'pending' ? 4 : 1,
   compactImages: true,
   includeReviewStats: false,
-  excludePendingChanges: query.status !== 'pending',
+  excludePendingChanges: query.status === 'active',
 });
 exports.approveProduct = async (id, actorId, payload) => productReviews.decide(id, actorId, 'approved', payload);
 exports.rejectProduct = async (id, actorId, payload) => productReviews.decide(id, actorId, 'rejected', payload);
@@ -92,7 +94,10 @@ exports.approveSeller = async (id) => db.setSellerVerification(id, 'approved');
 exports.rejectSeller = async (id, reason) => db.setSellerVerification(id, 'rejected', reason || 'اطلاعات هویتی کافی نیست.');
 
 exports.packages = async (query = {}) => db.listPackages(query.role_type, { includeInactive: true });
-exports.createPackage = async (payload) => db.createPackage(payload);
+exports.createPackage = async (payload = {}) => {
+  if (payload.role_type && payload.role_type !== 'seller') throw new ApiError(400, 'ساخت پکیج جدید فقط برای فروشندگان امکان‌پذیر است.');
+  return db.createPackage({ ...payload, role_type: 'seller' });
+};
 exports.updatePackage = async (id, payload) => db.updatePackage(id, payload);
 exports.packageSettings = async () => ({ token_price: Number(await db.getSetting('token_price', 25000) || 25000) });
 exports.updatePackageSettings = async (payload = {}) => {
@@ -101,16 +106,11 @@ exports.updatePackageSettings = async (payload = {}) => {
   return exports.packageSettings();
 };
 
-exports.bankInfo = async () => JSON.parse(await db.getSetting('bank_info', '{}') || '{}');
+exports.bankInfo = async () => bank.bankInfoStatus(await db.getSetting('bank_info', '{}'));
 exports.updateBankInfo = async (payload = {}) => {
-  const info = {
-    bank_name: String(payload.bank_name || '').trim(),
-    card_number: String(payload.card_number || '').trim(),
-    iban: String(payload.iban || '').trim(),
-    account_holder: String(payload.account_holder || '').trim(),
-  };
+  const info = bank.validateBankInfo(payload);
   await db.setSetting('bank_info', JSON.stringify(info));
-  return info;
+  return bank.bankInfoStatus(info);
 };
 
 exports.tickets = async (query = {}) => db.listTickets({

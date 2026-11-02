@@ -1,6 +1,7 @@
 const db = require('../repositories/dbStore');
 const asyncHandler = require('../utils/asyncHandler');
 const { toNumber } = require('../utils/number');
+const ApiError = require('../utils/apiError');
 
 function clientIp(req) {
   const value = req.ips?.at(-1) || req.ip || req.socket.remoteAddress || '';
@@ -21,7 +22,8 @@ async function publicProduct(slug, productId) {
 
 exports.publicStore = asyncHandler(async (req, res) => {
   const data = await db.getStoreBySlug(req.params.slug);
-  res.json({ success: true, data: data ? { ...data, products: await db.listProducts({ sellerId: data.seller_id, status: 'active' }) } : null });
+  if (!data) throw new ApiError(404, 'فروشگاه موردنظر یافت نشد');
+  res.json({ success: true, data: { ...data, products: await db.listProducts({ sellerId: data.seller_id, status: 'active' }) } });
 });
 
 exports.publicProQuota = asyncHandler(async (req, res) => {

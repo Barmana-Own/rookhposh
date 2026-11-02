@@ -1,11 +1,15 @@
 import EmptyState from '../ui/EmptyState';
 
-export default function SellerTable({ columns, rows, page, pageSize = 5, onPageChange, actions }) {
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const visibleRows = rows.slice((page - 1) * pageSize, page * pageSize);
+export default function SellerTable({ columns, rows, page, pageSize = 5, onPageChange, actions, pagination, loading, error, onRetry, emptyTitle }) {
+  const totalPages = pagination?.totalPages || Math.max(1, Math.ceil(rows.length / pageSize));
+  const visibleRows = pagination ? rows : rows.slice((page - 1) * pageSize, page * pageSize);
+
+  if (loading) return <div role="status" className="card text-sm text-slate-500">در حال دریافت اطلاعات…</div>;
+  if (error) return <div role="alert" className="card space-y-3 text-sm"><p>{error.message || 'دریافت اطلاعات انجام نشد.'}</p><button className="btn-soft" onClick={onRetry}>تلاش مجدد</button></div>;
 
   if (!rows.length) {
-    return <EmptyState title="نتیجه‌ای برای نمایش وجود ندارد" description="فیلتر یا عبارت جستجو را تغییر دهید." />;
+    if (pagination?.total > 0 && page > 1) return <div className="card space-y-3"><p>صفحه انتخاب‌شده خالی است.</p><button className="btn-soft" onClick={() => onPageChange(1)}>بازگشت به صفحه اول</button></div>;
+    return <EmptyState title={emptyTitle || 'نتیجه‌ای برای نمایش وجود ندارد'} description="فیلتر یا عبارت جستجو را تغییر دهید." />;
   }
 
   return (
@@ -18,7 +22,7 @@ export default function SellerTable({ columns, rows, page, pageSize = 5, onPageC
           <tbody>
             {visibleRows.map((row) => (
               <tr key={row.id} className="border-t border-slate-100 transition hover:bg-indigo-500/5 dark:border-slate-800">
-                {columns.map((column) => <td key={column.key} className="px-5 py-4">{column.render ? column.render(row) : row[column.key]}</td>)}
+                {columns.map((column) => <td key={column.key} className="max-w-sm break-words px-5 py-4">{column.render ? column.render(row) : row[column.key]}</td>)}
                 {actions && <td className="px-5 py-4">{actions(row)}</td>}
               </tr>
             ))}
@@ -42,7 +46,7 @@ export default function SellerTable({ columns, rows, page, pageSize = 5, onPageC
         <span className="text-slate-500">صفحه {page} از {totalPages}</span>
         <div className="flex gap-2">
           <button className="btn-soft" disabled={page === 1} onClick={() => onPageChange(page - 1)}>قبلی</button>
-          <button className="btn-soft" disabled={page === totalPages} onClick={() => onPageChange(page + 1)}>بعدی</button>
+          <button className="btn-soft" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>بعدی</button>
         </div>
       </div>
     </div>

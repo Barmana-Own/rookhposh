@@ -4,9 +4,10 @@ const pool = require('../config/database');
 const { jwtSecret } = require('../config/env');
 const ApiError = require('../utils/apiError');
 const { allowedOrigins } = require('./config');
+const sessionRevocations = require('./sessionRevocations');
 
 const COOKIE = process.env.NODE_ENV === 'production' ? '__Host-rhp_tryon_session' : 'rhp_tryon_session';
-const SESSION_SECONDS = 180 * 86400;
+const { SESSION_SECONDS } = sessionRevocations;
 const digest = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const signature = (value) => crypto.createHmac('sha256', jwtSecret).update(`tryon-session:${value}`).digest('hex');
 
@@ -19,11 +20,13 @@ function verifySession(value, now = Math.floor(Date.now() / 1000)) {
   return { nonce, expires: Number(expires) };
 }
 
-function visitor(req, res) {
+async function visitor(req, res) {
   const cookies = String(req.headers.cookie || '').split(';');
   const raw = cookies.find((item) => item.trim().startsWith(`${COOKIE}=`))?.trim().slice(COOKIE.length + 1);
   const now = Math.floor(Date.now() / 1000);
-  const session = verifySession(raw, now);
+  const presented = verifySession(raw, now);
+  req.tryonPresentedSession = presented ? { hash: digest('visitor:' + presented.nonce), expires: presented.expires } : null;
+  const session = presented && !await sessionRevocations.isRevoked(req.tryonPresentedSession.hash) ? presented : null;
   const nonce = session?.nonce || crypto.randomBytes(32).toString('hex');
   if (!session || session.expires - now < 30 * 86400) {
     const value = `${nonce}.${now + SESSION_SECONDS}`;
@@ -52,7 +55,7 @@ async function currentAccount(header) {
 function principal({ legacyVisitor = false } = {}) {
   return async (req, res, next) => {
     try {
-      const anonymous = visitor(req, res);
+      const anonymous = await visitor(req, res);
       const user = legacyVisitor ? null : await currentAccount(req.headers.authorization);
       req.tryonOwner = user
         ? { kind: 'account', hash: digest(`account:${user.id}`), userId: Number(user.id) }
@@ -77,7 +80,8 @@ async function requireAdmin(req, res, next) {
 }
 
 function sameOrigin(req, res, next) {
-  if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) {
+  const origin = req.headers.origin;
+  if ((origin && !allowedOrigins.has(origin)) || (!origin && req.headers['sec-fetch-site'] === 'cross-site')) {
     return next(new ApiError(403, 'مبدأ درخواست مجاز نیست.'));
   }
   return next();

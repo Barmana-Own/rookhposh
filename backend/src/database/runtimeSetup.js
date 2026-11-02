@@ -3,6 +3,7 @@ const paymentSchema = require('./paymentSchema');
 const { ensureEntitlementSchema } = require('./entitlementSchema');
 const { ensureTryonSchema } = require('./tryonSchema');
 const { ensureReviewSchema } = require('./reviewSchema');
+const { ensureSessionRevocations } = require('./sessionRevocationSchema');
 const { unlimitedProUserMobiles } = require('../config/env');
 const { normalizeMobile } = require('../utils/number');
 const { isLegacyStoreSlug, slugifyStoreName } = require('../utils/storeSlug');
@@ -119,6 +120,7 @@ async function ensureRuntimeSchema() {
   await pool.query(paymentSchema);
   await ensureEntitlementSchema(pool);
   await ensureTryonSchema(pool);
+  await ensureSessionRevocations(pool);
   await ensureReviewSchema(pool);
 
   await markConfiguredUnlimitedUsers();

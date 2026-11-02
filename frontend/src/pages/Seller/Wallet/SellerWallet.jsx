@@ -57,7 +57,8 @@ export default function SellerWallet() {
         columns={[
           { key: 'id', label: 'شناسه' },
           { key: 'amount', label: 'مبلغ' },
-          { key: 'method', label: 'روش' },
+          { key: 'transactionType', label: 'نوع تراکنش' },
+          { key: 'method', label: 'روش پرداخت' },
           { key: 'date', label: 'تاریخ' },
           { key: 'status', label: 'وضعیت' },
         ]}

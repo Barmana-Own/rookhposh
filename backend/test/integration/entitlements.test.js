@@ -194,7 +194,8 @@ test('purchased seller entitlements are usable, visible and spent once in real M
     await pool.query("INSERT INTO app_settings(`key`,`value`) VALUES('token_price','10') ON DUPLICATE KEY UPDATE `value`='10'");
     await db.purchaseTokens(account.id, 'seller', { quantity: 4, payment_method: 'wallet' });
     assert.equal((await dashboard(account)).tokens_remaining, 4); assert.equal((await dashboard(account)).subscription, null);
-    const pending = await db.purchaseTokens(account.id, 'seller', { quantity: 3, payment_method: 'bank_transfer' });
+    await db.setSetting('bank_info', JSON.stringify({ account_holder: 'Disposable QA recipient', card_number: '4111111111111111' }));
+    const pending = await db.purchaseTokens(account.id, 'seller', { quantity: 3, payment_method: 'bank_transfer', receipt: { dataUrl: image, name: 'qa-receipt.png' } });
     assert.equal((await dashboard(account)).tokens_remaining, 4);
     await db.approvePendingPayment(pending.transaction_id);
     await assert.rejects(db.approvePendingPayment(pending.transaction_id), { status: 404 });

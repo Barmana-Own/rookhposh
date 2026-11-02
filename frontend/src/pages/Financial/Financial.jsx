@@ -6,7 +6,7 @@ import { useAsyncResource } from '../../hooks/useAsyncResource.js';
 import apiClient from '../../services/apiClient.js';
 import { downloadBlob } from '../../utils/downloadBlob.js';
 import { faDateTime, formatMoney } from '../../utils/formatters.js';
-import { financialStatusLabel, financialTypeLabel, receiptUrlOf } from '../../utils/financialReport.js';
+import { financialStatusLabel, financialTypeLabel, paymentMethodOf, paymentMethodLabel, receiptUrlOf } from '../../utils/financialReport.js';
 
 const segments = [
   ['sellers', 'پرداخت فروشندگان'],
@@ -26,20 +26,6 @@ const bankFields = [
   ['iban', 'شماره شبا'],
   ['account_holder', 'نام صاحب حساب'],
 ];
-
-const paymentMethodLabels = {
-  wallet: 'کیف پول',
-  bank_transfer: 'واریز حساب',
-  direct_gateway: 'درگاه مستقیم',
-};
-
-function paymentMethodOf(row = {}) {
-  return row.metadata?.payment_method || row.metadata?.source || 'wallet';
-}
-
-function paymentMethodLabel(row = {}) {
-  return paymentMethodLabels[paymentMethodOf(row)] || paymentMethodOf(row);
-}
 
 function receiptKind(row = {}) {
   const method = paymentMethodOf(row);
@@ -108,6 +94,8 @@ export default function Financial() {
   const [pendingPage, setPendingPage] = useState(1);
   const [notice, setNotice] = useState('');
   const [bankEdits, setBankEdits] = useState(null);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankSaveError, setBankSaveError] = useState('');
   const [receiptRow, setReceiptRow] = useState(null);
   const [pendingActionId, setPendingActionId] = useState(null);
   const { data, loading: reportLoading, error: reportError, reload: reloadReport } = useAsyncResource(
@@ -120,7 +108,7 @@ export default function Financial() {
     [pendingPage],
     { pollMs: 4000, keepPreviousData: true },
   );
-  const { data: bankInfo = {}, reload: reloadBankInfo } = useAsyncResource(async () => (await apiClient.get('/api/admin/settings/bank')).data.data, []);
+  const { data: bankInfo = {}, loading: bankLoading, error: bankError, reload: reloadBankInfo } = useAsyncResource(async () => (await apiClient.get('/api/admin/settings/bank')).data.data, []);
 
   const pending = Array.isArray(pendingResponse) ? pendingResponse : pendingResponse?.items || [];
   const pendingPagination = Array.isArray(pendingResponse) ? null : pendingResponse?.pagination;
@@ -193,10 +181,13 @@ export default function Financial() {
   };
 
   const saveBankInfo = async () => {
-    await apiClient.patch('/api/admin/settings/bank', bankForm);
-    setBankEdits(null);
-    flash('مشخصات حساب بانکی ذخیره شد.');
-    reloadBankInfo();
+    if (bankSaving) return;
+    setBankSaving(true); setBankSaveError('');
+    try {
+      await apiClient.patch('/api/admin/settings/bank', bankForm);
+      setBankEdits(null); flash('مشخصات حساب بانکی ذخیره شد.'); reloadBankInfo();
+    } catch (error) { setBankSaveError(error.message || 'ذخیره اطلاعات حساب انجام نشد.'); }
+    finally { setBankSaving(false); }
   };
 
   return (
@@ -227,6 +218,8 @@ export default function Financial() {
       <div className="card">
         <h2 className="mb-2 text-xl font-black">مشخصات حساب بانکی ادمین</h2>
         <p className="mb-4 text-sm text-slate-500">این اطلاعات در پرداخت‌های «واریز به حساب» به فروشندگان نمایش داده می‌شود.</p>
+        {!bankLoading && !bankError && !bankInfo.bank_transfer_available && <p role="status" className="mb-4 text-sm text-amber-700">اطلاعات حساب بانکی تکمیل نشده است</p>}
+        {(bankError || bankSaveError) && <p role="alert" className="mb-4 text-sm text-red-700">{bankSaveError || bankError.message}</p>}
         <div className="grid gap-3 md:grid-cols-2">
           {bankFields.map(([key, label]) => (
             <label key={key} className="space-y-2">
@@ -239,7 +232,7 @@ export default function Financial() {
             </label>
           ))}
         </div>
-        <button className="btn-primary mt-4" onClick={saveBankInfo}>ذخیره مشخصات حساب</button>
+        <button className="btn-primary mt-4" disabled={bankLoading || bankSaving || Boolean(bankError)} onClick={saveBankInfo}>ذخیره مشخصات حساب</button>
       </div>
 
       {pending.length ? (

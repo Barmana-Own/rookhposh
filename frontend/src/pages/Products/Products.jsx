@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import { useProductQuery } from '../../hooks/useProductQuery.js';
+import EmptyState from '../../components/ui/EmptyState.jsx';
 import AdminPagination from '../../components/admin/AdminPagination.jsx';
 import AccessibleModal from '../../components/ui/AccessibleModal.jsx';
 import ProductReviewDetail from '../../components/admin/ProductReviewDetail.jsx';
@@ -10,6 +12,7 @@ import { formatMoney } from '../../utils/formatters.js';
 import { getProductImage, getProductImages } from '../../utils/productImage.js';
 
 const tabs = [
+  ['all', 'همه محصولات'],
   ['pending', 'در انتظار بررسی'],
   ['active', 'تایید شده'],
   ['rejected', 'رد شده'],
@@ -41,15 +44,14 @@ function displayProduct(row) {
 }
 
 export default function Products() {
-  const [tab, setTab] = useState('pending');
-  const [page, setPage] = useState(1);
-  const { data: response, reload, updateData } = useAsyncResource(
+  const { search, filter: tab, page, setSearch, setFilter: setTab, setPage } = useProductQuery('pending');
+  const { data: response, loading, error, reload, updateData } = useAsyncResource(
     async () => {
-      const params = new URLSearchParams({ status: tab, page: String(page), limit: '25' });
+      const params = new URLSearchParams({ status: tab, q: search, page: String(page), limit: '25' });
       return (await apiClient.get(`/api/admin/products?${params.toString()}`)).data.data;
     },
-    [tab, page],
-    { pollMs: 4000, keepPreviousData: true },
+    [tab, page, search],
+    { pollMs: 4000 },
   );
   const [detailId, setDetailId] = useState(null);
   const dialogTrigger = useRef(null);
@@ -86,13 +88,17 @@ export default function Products() {
       <button className="btn-soft self-start" onClick={(event) => { dialogTrigger.current = event.currentTarget; setReasonSettings(true); }}>مدیریت دلایل رد محصول</button>
       <div className="card flex flex-wrap gap-2">
         {tabs.map(([value, label]) => (
-          <button key={value} onClick={() => { setTab(value); setPage(1); }} className={tab === value ? 'btn-primary' : 'btn-soft'}>
+          <button key={value} onClick={() => setTab(value)} className={tab === value ? 'btn-primary' : 'btn-soft'}>
             {label}
           </button>
         ))}
       </div>
 
-      <DataTable
+      <label className="sr-only" htmlFor="admin-product-search">جستجوی محصولات</label>
+      <input id="admin-product-search" className="input" value={search} onChange={event => setSearch(event.target.value)} placeholder="جستجوی محصولات" maxLength={120} />
+      {error ? <div role="alert" className="card"><p>{error.message || 'دریافت محصولات انجام نشد.'}</p><button className="btn-soft" onClick={reload}>تلاش مجدد</button></div>
+        : loading ? <div role="status" className="card">در حال دریافت محصولات…</div>
+          : !rows.length ? <EmptyState title={search ? 'نتیجه‌ای یافت نشد' : 'نتیجه‌ای برای نمایش وجود ندارد'} /> : <DataTable
         rows={rows}
         columns={[
           { key: 'image', label: 'لباس و مدل‌ها', render: (row) => <ProductGallery row={row} /> },
@@ -112,7 +118,7 @@ export default function Products() {
           },
         ]}
         renderActions={(row) => <button className="btn-soft" onClick={(event) => { dialogTrigger.current = event.currentTarget; setDetailId(row.id); }}>جزئیات</button>}
-      />
+      />}
 
       <AdminPagination pagination={pagination} onPageChange={setPage} />
 

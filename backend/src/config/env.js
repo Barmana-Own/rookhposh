@@ -1,9 +1,9 @@
 require('dotenv').config();
 const truthy = (value) => ['1', 'true', 'yes', 'on'].includes(String(value || '').toLowerCase());
 
-if (process.env.NODE_ENV === 'production' && truthy(process.env.OMIDPAY_ENABLED)
+if (process.env.NODE_ENV === 'production'
     && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-this-secret' || process.env.JWT_SECRET.length < 32)) {
-  throw new Error('A private JWT_SECRET of at least 32 characters is required before enabling production payments.');
+  throw new Error('A private JWT_SECRET of at least 32 characters is required for production authentication.');
 }
 
 module.exports = {

@@ -87,11 +87,14 @@ test('password sign-in rejects legacy customers and phone-derived OTP passwords'
   await assert.rejects(auth.login({ username: 'seller', password: 'otp-00000000004' }), { status: 403 });
 });
 
-test('a valid old customer JWT cannot authenticate while admin and seller JWTs remain valid', () => {
+test('a valid old customer JWT cannot authenticate while admin and seller JWTs remain valid', async (t) => {
+  let current;
+  replace(t, db, 'findUserById', async () => current);
   for (const role of ['User', 'Admin', 'Seller']) {
     const request = { headers: { authorization: 'Bearer ' + jwt.sign({ id: 55, role }, jwtSecret) } };
+    current = { id: 55, role, status: 'active', seller_verification_status: 'approved' };
     let result;
-    authenticate(request, {}, (error) => { result = error; });
+    await authenticate(request, {}, (error) => { result = error; });
     if (role === 'User') assert.equal(result.status, 403);
     else assert.equal(result, undefined);
   }
@@ -109,6 +112,7 @@ test('stale seller JWTs do not bypass a blocked or changed database role', async
 });
 
 test('HTTP user-panel endpoints are absent and customer tokens cannot enter protected panels', async (t) => {
+  replace(t, db, 'findUserById', async () => ({ id: 15, role: 'User', status: 'active' }));
   const app = require('../src/app');
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));

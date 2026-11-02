@@ -6,9 +6,10 @@ import SellerTable from '../../../components/seller/SellerTable';
 import SellerToolbar from '../../../components/seller/SellerToolbar';
 import { useAsyncResource } from '../../../hooks/useAsyncResource';
 import { sellerApi } from '../../../services/seller/sellerApi';
+import SellerProUsages from './SellerProUsages.jsx';
 
 export default function SellerTransactions() {
-  const { data = [] } = useAsyncResource(() => sellerApi.getTransactions());
+  const { data = [], loading, error, reload } = useAsyncResource(() => sellerApi.getTransactions());
   const [tab, setTab] = useState('financial');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -26,8 +27,10 @@ export default function SellerTransactions() {
         <button className={tab === 'financial' ? 'btn-primary' : 'btn-soft'} onClick={() => setTab('financial')}>مالی</button>
         <button className={tab === 'pro' ? 'btn-primary' : 'btn-soft'} onClick={() => setTab('pro')}>مصرف توکن پرو</button>
       </div>
+      {tab === 'pro' ? <SellerProUsages /> : <>
       <SellerToolbar search={search} onSearch={setSearch} filter="all" onFilter={() => {}} filters={[{ value: 'all', label: 'همه تراکنش‌ها' }]} />
       <SellerTable
+        loading={loading} error={error} onRetry={reload}
         page={page}
         onPageChange={setPage}
         rows={rows}
@@ -41,6 +44,7 @@ export default function SellerTransactions() {
         actions={(row) => <button className="btn-soft" onClick={() => setTransaction(row)}>جزئیات</button>}
       />
 
+      </>}
       <SellerDrawer open={Boolean(transaction)} title="جزئیات تراکنش" onClose={() => setTransaction(null)}>
         {transaction ? (
           <div className="space-y-3 text-sm">

@@ -1,5 +1,8 @@
 const QRCode = require('qrcode');
+const usageStore = require('../repositories/sellerUsageStore');
+const { productStatus, productPagination } = require('../utils/productSearch');
 const db = require('../repositories/dbStore');
+const { publicBankInfo } = require('./bankInfo');
 const { exportWorkbook } = require('../utils/excelExport');
 
 function flattenDetails(metadata = {}) {
@@ -16,10 +19,11 @@ function flattenDetails(metadata = {}) {
 }
 
 exports.dashboard = async (id) => db.dashboardFor('Seller', id);
-exports.products = async (id, query = {}) => db.listProducts({ sellerId: id, status: query.status, search: query.q });
+exports.products = async (id, query = {}) => db.listProducts({ sellerId: id, status: productStatus(query.status), search: query.q, ...productPagination(query), includeMeta: query.page != null || query.limit != null, includeUnpublished: true });
 exports.createProduct = async (id, payload) => db.createProduct(id, payload);
 exports.updateProduct = async (id, productId, payload) => db.updateProduct(id, productId, payload);
 exports.setProductPublishStatus = async (id, productId, payload) => db.setProductPublishStatus(id, productId, payload.publish_status);
+exports.proUsages = async (id, query = {}) => usageStore.report(id, query);
 exports.orders = async (id) => db.listTransactions({ sellerId: id });
 exports.wallet = async (id) => ({ balance_toman: (await db.findUserById(id))?.wallet_balance || 0 });
 exports.chargeWallet = async (id, payload) => db.chargeWallet(id, payload.amount, payload.description || 'شارژ کیف پول فروشگاه', payload);
@@ -58,7 +62,7 @@ exports.purchasePackage = async (id, packageId, payload) => db.purchasePackage(i
 exports.purchaseTokens = async (id, payload) => db.purchaseTokens(id, 'seller', payload);
 exports.packageSettings = async () => ({
   token_price: Number(await db.getSetting('token_price', 25000) || 25000),
-  bank_info: JSON.parse(await db.getSetting('bank_info', '{}') || '{}'),
+  bank_info: publicBankInfo(await db.getSetting('bank_info', '{}')),
 });
 
 exports.exportTransactions = async (id) => {

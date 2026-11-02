@@ -13,6 +13,10 @@ exports.products = asyncHandler(async (req, res) => ok(res, await service.produc
 exports.createProduct = asyncHandler(async (req, res) => ok(res, await service.createProduct(req.user.id, req.body)));
 exports.updateProduct = asyncHandler(async (req, res) => ok(res, await service.updateProduct(req.user.id, req.params.id, req.body)));
 exports.setProductPublishStatus = asyncHandler(async (req, res) => ok(res, await service.setProductPublishStatus(req.user.id, req.params.id, req.body)));
+exports.proUsages = asyncHandler(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  return ok(res, await service.proUsages(req.user.id, req.query));
+});
 exports.transactions = asyncHandler(async (req, res) => ok(res, await service.orders(req.user.id)));
 exports.wallet = asyncHandler(async (req, res) => ok(res, await service.wallet(req.user.id)));
 exports.chargeWallet = asyncHandler(async (req, res) => ok(res, await service.chargeWallet(req.user.id, req.body)));

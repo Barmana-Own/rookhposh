@@ -1,5 +1,5 @@
 import { CheckCircle2, Copy, ImagePlus, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import SellerDrawer from '../../../components/seller/SellerDrawer';
 import SellerModal from '../../../components/seller/SellerModal';
 import SellerPageHeader from '../../../components/seller/SellerPageHeader';
@@ -8,6 +8,7 @@ import SellerToast from '../../../components/seller/SellerToast';
 import SellerToolbar from '../../../components/seller/SellerToolbar';
 import FileDropzone from '../../../components/ui/FileDropzone.jsx';
 import { useAsyncResource } from '../../../hooks/useAsyncResource';
+import { useProductQuery } from '../../../hooks/useProductQuery.js';
 import { sellerApi } from '../../../services/seller/sellerApi';
 import { readImageAsDataUrl } from '../../../utils/file';
 import { getProductImage, getProductImages } from '../../../utils/productImage';
@@ -16,6 +17,7 @@ import { ReviewHistory } from '../../../components/admin/ProductReviewDetail.jsx
 import { faDateTime } from '../../../utils/formatters.js';
 
 const filters = [
+  { value: 'all', label: 'همه محصولات' },
   { value: 'active', label: 'محصولات فعال' },
   { value: 'rejected', label: 'محصولات رد شده' },
   { value: 'pending', label: 'در انتظار بررسی' },
@@ -63,10 +65,9 @@ async function copyText(value) {
 
 export default function SellerProducts() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const { loading, data = [] } = useAsyncResource(() => sellerApi.getProducts(), [refreshKey]);
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('active');
-  const [page, setPage] = useState(1);
+  const { search, filter, page, setSearch, setFilter, setPage } = useProductQuery('active');
+  const { loading, error, data, reload } = useAsyncResource(() => sellerApi.getProducts({ q: search, status: filter, page, limit: 20 }), [refreshKey, search, filter, page]);
+  const rows = data?.items || [];
   const [modal, setModal] = useState(false);
   const [drawerProduct, setDrawerProduct] = useState(null);
   const [qr, setQr] = useState(null);
@@ -75,17 +76,6 @@ export default function SellerProducts() {
   const [imageNames, setImageNames] = useState([]);
   const [features, setFeatures] = useState([]);
   const [featureInput, setFeatureInput] = useState('');
-
-  const rows = useMemo(
-    () =>
-      data.filter((item) => {
-        const matchesFilter = filter === 'rejected' ? item.status === 'rejected' || item.review_status === 'rejected'
-          : filter === 'pending' ? item.status === 'pending' || item.hasPendingChanges : item.status === filter;
-        const source = `${item.title} ${item.statusLabel || ''} ${item.publishLabel || ''}`;
-        return matchesFilter && source.includes(search);
-      }),
-    [data, filter, search],
-  );
 
   const notify = (message) => {
     setToast(message);
@@ -215,8 +205,8 @@ export default function SellerProducts() {
 
       <SellerToolbar search={search} onSearch={setSearch} filter={filter} onFilter={setFilter} filters={filters} />
 
-      {loading ? null : (
-        <SellerTable
+      <SellerTable
+          loading={loading} error={error} onRetry={reload} pagination={data?.pagination} emptyTitle={search ? 'نتیجه‌ای یافت نشد' : undefined}
           page={page}
           onPageChange={setPage}
           rows={rows}
@@ -266,7 +256,6 @@ export default function SellerProducts() {
             </div>
           )}
         />
-      )}
 
       <SellerModal open={modal} title={form.id ? 'ویرایش محصول' : 'افزودن محصول جدید'} onClose={() => setModal(false)}>
         <div className="grid gap-4">

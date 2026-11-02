@@ -3,11 +3,18 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import apiClient from '../services/apiClient.js';
 import { formatMoney } from '../utils/formatters.js';
+import AuthRecovery from '../components/auth/AuthRecovery.jsx';
 
 export default function PaymentResult() {
   const { id } = useParams();
-  const { user, loading: authLoading } = useAuth();
-  return <PaymentStatus key={`${id}:${user?.id || ''}`} id={id} user={user} authLoading={authLoading} />;
+  const { user, status } = useAuth();
+  const verifying = status === 'checking' || status === 'temporarilyUnavailable';
+  return <>
+    {verifying && <AuthRecovery />}
+    <div hidden={verifying} inert={verifying ? true : undefined}>
+      <PaymentStatus key={`${id}:${user?.id || ''}`} id={id} user={user} authLoading={verifying} />
+    </div>
+  </>;
 }
 
 function PaymentStatus({ id, user, authLoading }) {

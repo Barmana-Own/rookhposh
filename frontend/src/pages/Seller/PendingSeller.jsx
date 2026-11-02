@@ -3,15 +3,16 @@ import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { accountHome } from '../../utils/authNavigation.js';
+import AuthRecovery from '../../components/auth/AuthRecovery.jsx';
 
 export default function PendingSeller() {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, status, logout, refreshUser } = useAuth();
 
   useEffect(() => {
-    if (user?.role !== 'Seller' || String(user.seller_verification_status || '').toLowerCase() === 'approved') return undefined;
+    if (status !== 'authenticated' || user?.role !== 'Seller' || String(user.seller_verification_status || '').toLowerCase() === 'approved') return undefined;
     let active = true;
     const refresh = () => {
-      if (active) refreshUser().catch(() => {});
+      if (active) void refreshUser();
     };
     const interval = window.setInterval(refresh, 5000);
     window.addEventListener('focus', refresh);
@@ -20,10 +21,9 @@ export default function PendingSeller() {
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
     };
-    // refreshUser is intentionally omitted: AuthContext recreates it when the user changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role, user?.seller_verification_status]);
+  }, [status, user?.role, user?.seller_verification_status, refreshUser]);
 
+  if (status === 'checking' || status === 'temporarilyUnavailable') return <AuthRecovery />;
   if (!user || user.role !== 'Seller') return <Navigate to={accountHome(user)} replace />;
   if (String(user.seller_verification_status || '').toLowerCase() === 'approved') return <Navigate to="/seller/dashboard" replace />;
 

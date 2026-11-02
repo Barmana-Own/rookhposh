@@ -7,7 +7,8 @@
     "db:export": "npm run db:export --prefix backend",
     "test": "npm run lint && npm run test:unit",
     "test:unit": "npm run test --prefix backend && node --test frontend/test/*.test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:root-cause": "playwright test --config=playwright.root-cause.config.cjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

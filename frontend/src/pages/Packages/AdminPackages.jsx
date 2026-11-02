@@ -9,7 +9,6 @@ import apiClient from '../../services/apiClient.js';
 import { formatMoney, formatNumberInput, moneyInWords, onlyDigits } from '../../utils/formatters.js';
 
 const tabs = [
-  ['user', 'پکیج‌های کاربر'],
   ['seller', 'پکیج‌های فروشگاه'],
 ];
 
@@ -40,7 +39,7 @@ const defaultForm = {
   pro_requests_count: '0',
   monthly_pro_request_limit: '0',
   features: [],
-  role_type: 'user',
+  role_type: 'seller',
   status: 'active',
 };
 
@@ -91,7 +90,7 @@ function PackageModal({ open, form, onChange, onClose, onSubmit, saving }) {
           <div className="mb-6 text-right">
             <h3 className="text-2xl font-black text-slate-950">{form.id ? 'ویرایش پکیج' : 'افزودن پکیج جدید'}</h3>
             <p className="mt-2 text-sm leading-7 text-slate-500">
-              طراحی این بخش به‌صورت تک‌استفاده با همان حس سفید و مینیمال پرامپت جدید پیاده‌سازی شده است.
+              اطلاعات پکیج فروشگاه، مدت اعتبار و سهمیه توکن‌ها را وارد کنید.
             </p>
           </div>
 
@@ -99,7 +98,6 @@ function PackageModal({ open, form, onChange, onClose, onSubmit, saving }) {
             <WhiteInput value={form.title} onChange={(event) => onChange('title', event.target.value)} placeholder="عنوان پکیج" />
 
             <WhiteSelect value={form.role_type} onChange={(event) => onChange('role_type', event.target.value)}>
-              <option value="user">پکیج کاربر</option>
               <option value="seller">پکیج فروشگاه</option>
             </WhiteSelect>
 
@@ -145,7 +143,7 @@ function PackageModal({ open, form, onChange, onClose, onSubmit, saving }) {
                 <MultipleSelector
                   value={selectedFeatures}
                   options={packageFeatureOptions}
-                  placeholder="Select Rick and Morty characters"
+                  placeholder="ویژگی‌ها و خدمات پکیج را انتخاب کنید"
                   hideClearAllButton
                   hidePlaceholderWhenSelected
                   creatable
@@ -187,7 +185,7 @@ function PackageModal({ open, form, onChange, onClose, onSubmit, saving }) {
 }
 
 export default function AdminPackages() {
-  const [tab, setTab] = useState('user');
+  const [tab, setTab] = useState('seller');
   const [refreshKey, setRefreshKey] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
@@ -324,7 +322,7 @@ export default function AdminPackages() {
           <div className="max-w-2xl">
             <h1 className="text-3xl font-black text-slate-950">مدیریت پکیج‌ها</h1>
             <p className="mt-3 text-base leading-8 text-slate-500">
-              بسته‌های اشتراک کاربر و فروشگاه را از این صفحه مدیریت کنید. فرم ساخت و ویرایش به دیزاین تک‌استفاده جدید نزدیک شده و بخش انتخاب خدمات هم جایگزین textarea قدیمی شده است.
+            در این بخش می‌توانید پکیج‌های فروشندگان، سهمیه توکن‌ها و تعرفه‌های خدمات را مدیریت کنید.
             </p>
           </div>
 
@@ -364,12 +362,8 @@ export default function AdminPackages() {
 
       <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
         <PricingSection
-          title={tab === 'seller' ? 'پکیج‌های فروشگاه' : 'پکیج‌های کاربر'}
-          description={
-            tab === 'seller'
-              ? 'بسته‌های مخصوص فروشگاه‌ها، با تمرکز روی ابزارهای تجاری، درخواست‌های پرو و امکانات توسعه فروشگاه.'
-              : 'بسته‌های کاربری برای خرید سرویس، درخواست‌های پرو و استفاده بهتر از امکانات مارکت‌پلیس.'
-          }
+          title="پکیج‌های فروشگاه"
+          description="پکیج‌ها و اعتبار پرو برای فروشگاه‌ها هستند؛ پرو عمومی برای مشتریان رایگان است."
           plans={rows}
           actionLabel="ویرایش پکیج"
           onAction={openEdit}
@@ -428,7 +422,7 @@ export default function AdminPackages() {
               </div>
             </div>
           ) : (
-            <EmptyState title="هنوز پکیجی ثبت نشده است" description="برای این نقش هنوز پکیجی ساخته نشده. از دکمه افزودن پکیج استفاده کنید." />
+            <EmptyState title="هنوز پکیجی ثبت نشده است" description="هنوز پکیج فروشگاهی ثبت نشده است. از دکمه افزودن پکیج استفاده کنید." />
           )}
         </div>
       </div>

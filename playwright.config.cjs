@@ -2,6 +2,7 @@ const { defineConfig, devices } = require('@playwright/test');
 const path = require('node:path');
 module.exports = defineConfig({
   testDir: './e2e',
+  testIgnore: '**/root-cause*.spec.cjs',
   fullyParallel: false,
   workers: 1,
   timeout: 150000,

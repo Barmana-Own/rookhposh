@@ -112,6 +112,7 @@ function createWorker({ repository = store, providerStore = providers, providerC
         }
         await repository.recover(staged);
         await require('./cleanup').purgeDeleted();
+        await require('./sessionRevocations').purgeExpired();
         recoveredAt = Date.now();
       }
       const job = await repository.claim();

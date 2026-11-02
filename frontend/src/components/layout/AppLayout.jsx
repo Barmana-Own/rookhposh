@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext.jsx';
 import ErrorBoundary from '../ui/ErrorBoundary.jsx';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
+import AuthRecovery from '../auth/AuthRecovery.jsx';
 import { accountHome } from '../../utils/authNavigation.js';
 
 const titles = {
@@ -28,17 +29,12 @@ const titles = {
 
 export default function AppLayout({ role }) {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const { user, loading } = useAuth();
+  const { user, status } = useAuth();
+  const verifying = status === 'checking' || status === 'temporarilyUnavailable';
   const location = useLocation();
   const crumb = titles[location.pathname] || 'داشبورد';
 
-  if (loading) {
-    return (
-      <div dir="rtl" className="grid min-h-screen place-items-center bg-[#eef2ff] font-bold">
-        در حال بررسی ورود...
-      </div>
-    );
-  }
+  if (!user && verifying) return <AuthRecovery />;
 
   if (!user) {
     const loginPath = role === 'Admin' ? '/admin/v2/login' : '/seller';
@@ -53,9 +49,12 @@ export default function AppLayout({ role }) {
 
   return (
     <div
+      key={user.id}
       dir="rtl"
       className="min-h-screen bg-[#eef2ff] bg-[radial-gradient(circle_at_top_left,_rgba(99,91,255,.18),transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(34,211,238,.16),transparent_35%)] p-3 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
     >
+      {verifying && <AuthRecovery embedded />}
+      <div hidden={verifying} inert={verifying ? true : undefined}>
       <Sidebar open={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
       <Topbar onMenuClick={() => setSidebarOpen(true)} />
       <main className="lg:mr-72">
@@ -68,6 +67,7 @@ export default function AppLayout({ role }) {
           </ErrorBoundary>
         </div>
       </main>
+      </div>
     </div>
   );
 }

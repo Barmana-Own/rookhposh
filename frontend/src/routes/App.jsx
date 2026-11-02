@@ -4,6 +4,7 @@ import AppLayout from '../components/layout/AppLayout.jsx';
 import SkeletonGrid from '../components/ui/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { accountHome } from '../utils/authNavigation.js';
+import AuthRecovery from '../components/auth/AuthRecovery.jsx';
 
 const Dashboard = lazy(() => import('../pages/Dashboard/Dashboard.jsx'));
 const Products = lazy(() => import('../pages/Products/Products.jsx'));
@@ -35,8 +36,8 @@ const PublicProduct = lazy(() => import('../pages/PublicProduct.jsx'));
 const PaymentResult = lazy(() => import('../pages/PaymentResult.jsx'));
 
 function HomeRedirect() {
-  const { user, loading } = useAuth();
-  if (loading) return <SkeletonGrid />;
+  const { user, status } = useAuth();
+  if (status === 'checking' || status === 'temporarilyUnavailable') return <AuthRecovery />;
   return <Navigate to={accountHome(user)} replace />;
 }
 

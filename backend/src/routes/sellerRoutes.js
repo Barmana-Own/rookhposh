@@ -19,6 +19,7 @@ router.get('/products/:id/qrcode', controller.productQrCode);
 router.get('/customers', controller.customers);
 router.get('/customers/export', controller.exportCustomers);
 
+router.get('/pro-usages', controller.proUsages);
 router.get('/transactions', controller.transactions);
 router.get('/transactions/export', controller.exportTransactions);
 router.get('/wallet', controller.wallet);
