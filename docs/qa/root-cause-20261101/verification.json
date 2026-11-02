@@ -1,0 +1,939 @@
+{
+  "generatedAt": "2026-11-02T00:16:59.467Z",
+  "sourceCommit": "bfef22249e81677a2b01e0155a1d4dcce588c26e",
+  "baseCommit": "c8845e6f071af168dbf4532e40ca683b3a2dd610",
+  "branch": "codex/root-cause-qa-20261101",
+  "productionDeployed": false,
+  "baseline": {
+    "stats": {
+      "startTime": "2026-11-01T22:31:42.689Z",
+      "duration": 509183.60500000004,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 9,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-01 same-IP guests cannot read another visitor history or image",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-02 real store usage is visible independently of financial transactions",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-03 public store exposes free products without misleading customer registration",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 unconfigured manual bank transfer is disabled without placeholder account numbers",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 seller URL search excludes unrelated products and Back restores query",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 a temporary auth 503 retains the token but does not reveal protected content",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 missing store returns 404 and stops loading with a useful empty state",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-08 packages operate for sellers while legacy customer records remain outside purchase UI",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-09 wallet shows the payment method rather than its internal transaction type",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-10 packages contain operational Persian text instead of development notes",
+        "project": "desktop",
+        "status": "failed",
+        "expected": "passed"
+      }
+    ]
+  },
+  "unit": {
+    "backend": 115,
+    "frontend": 86,
+    "failed": 0,
+    "skipped": 0
+  },
+  "integration": {
+    "rootCause": 14,
+    "tryon": 21,
+    "reviews": 5,
+    "payments": 8,
+    "entitlements": 12,
+    "financial": 7,
+    "rootCauseMigration": 1
+  },
+  "browser": {
+    "uniqueCases": 84,
+    "passed": 84,
+    "failed": 0,
+    "skipped": 0,
+    "runs": [
+      {
+        "startTime": "2026-11-01T23:04:35.177Z",
+        "duration": 1484257.9510000001,
+        "expected": 63,
+        "skipped": 0,
+        "unexpected": 5,
+        "flaky": 0
+      },
+      {
+        "startTime": "2026-11-01T23:36:30.797Z",
+        "duration": 584039.524,
+        "expected": 35,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      {
+        "startTime": "2026-11-01T23:49:09.443Z",
+        "duration": 453431.382,
+        "expected": 20,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      {
+        "startTime": "2026-11-02T00:04:55.841Z",
+        "duration": 246121.872,
+        "expected": 4,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    ],
+    "cases": [
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-01 same-IP guests cannot read another visitor history or image",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-02 real store usage is visible independently of financial transactions",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-03 public store exposes free products without misleading customer registration",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 unconfigured manual bank transfer is disabled without placeholder account numbers",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 seller URL search excludes unrelated products and Back restores query",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 a temporary auth 503 retains the token but does not reveal protected content",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 missing store returns 404 and stops loading with a useful empty state",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-08 packages operate for sellers while legacy customer records remain outside purchase UI",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-09 wallet shows the payment method rather than its internal transaction type",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-10 packages contain operational Persian text instead of development notes",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 admin search supports direct links, clearing, Back and Forward",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 forbidden preserves the session and a real 401 clears it safely",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 null, server and transport failures finish loading and offer recovery",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 valid admin settings propagate to checkout without placeholder recipients",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: real try-on UI, indeterminate progress, latest/history and original downloads",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: AI failure releases credit and a controlled retry preserves the last output",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: admin sees real operation records and provider keys stay masked",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-01 same-IP guests cannot read another visitor history or image",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-02 real store usage is visible independently of financial transactions",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-03 public store exposes free products without misleading customer registration",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 unconfigured manual bank transfer is disabled without placeholder account numbers",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 seller URL search excludes unrelated products and Back restores query",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 a temporary auth 503 retains the token but does not reveal protected content",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 missing store returns 404 and stops loading with a useful empty state",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-08 packages operate for sellers while legacy customer records remain outside purchase UI",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-09 wallet shows the payment method rather than its internal transaction type",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-10 packages contain operational Persian text instead of development notes",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 admin search supports direct links, clearing, Back and Forward",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 forbidden preserves the session and a real 401 clears it safely",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 null, server and transport failures finish loading and offer recovery",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 valid admin settings propagate to checkout without placeholder recipients",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: real try-on UI, indeterminate progress, latest/history and original downloads",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: AI failure releases credit and a controlled retry preserves the last output",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: admin sees real operation records and provider keys stay masked",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-01 same-IP guests cannot read another visitor history or image",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-02 real store usage is visible independently of financial transactions",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-03 public store exposes free products without misleading customer registration",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 unconfigured manual bank transfer is disabled without placeholder account numbers",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 seller URL search excludes unrelated products and Back restores query",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 a temporary auth 503 retains the token but does not reveal protected content",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 missing store returns 404 and stops loading with a useful empty state",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-08 packages operate for sellers while legacy customer records remain outside purchase UI",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-09 wallet shows the payment method rather than its internal transaction type",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-10 packages contain operational Persian text instead of development notes",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 admin search supports direct links, clearing, Back and Forward",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 forbidden preserves the session and a real 401 clears it safely",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 null, server and transport failures finish loading and offer recovery",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 valid admin settings propagate to checkout without placeholder recipients",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: real try-on UI, indeterminate progress, latest/history and original downloads",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: AI failure releases credit and a controlled retry preserves the last output",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: admin sees real operation records and provider keys stay masked",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-01 same-IP guests cannot read another visitor history or image",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-02 real store usage is visible independently of financial transactions",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-03 public store exposes free products without misleading customer registration",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 unconfigured manual bank transfer is disabled without placeholder account numbers",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 seller URL search excludes unrelated products and Back restores query",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 a temporary auth 503 retains the token but does not reveal protected content",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 missing store returns 404 and stops loading with a useful empty state",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-08 packages operate for sellers while legacy customer records remain outside purchase UI",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-09 wallet shows the payment method rather than its internal transaction type",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-10 packages contain operational Persian text instead of development notes",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-05 admin search supports direct links, clearing, Back and Forward",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-06 forbidden preserves the session and a real 401 clears it safely",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-07 null, server and transport failures finish loading and offer recovery",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "QA-04 valid admin settings propagate to checkout without placeholder recipients",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: real try-on UI, indeterminate progress, latest/history and original downloads",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: AI failure releases credit and a controlled retry preserves the last output",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause.spec.cjs",
+        "title": "regression: admin sees real operation records and provider keys stay masked",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "QA-06 approval page retains a pending seller through auth 503 and recovers without login",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "QA-06 payment-result page hides account data during auth 503 and offers recovery",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "regression: synthetic browser camera capture works and stops tracks without dispatching AI",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "QA-06 approval page retains a pending seller through auth 503 and recovers without login",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "QA-06 payment-result page hides account data during auth 503 and offers recovery",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "regression: synthetic browser camera capture works and stops tracks without dispatching AI",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "QA-06 approval page retains a pending seller through auth 503 and recovers without login",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "QA-06 payment-result page hides account data during auth 503 and offers recovery",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "regression: synthetic browser camera capture works and stops tracks without dispatching AI",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "QA-06 approval page retains a pending seller through auth 503 and recovers without login",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "QA-06 payment-result page hides account data during auth 503 and offers recovery",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-recovery.spec.cjs",
+        "title": "regression: synthetic browser camera capture works and stops tracks without dispatching AI",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-login.spec.cjs",
+        "title": "QA-06 actual password login and page reload preserve a verified admin session",
+        "project": "desktop",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-login.spec.cjs",
+        "title": "QA-06 actual password login and page reload preserve a verified admin session",
+        "project": "intermediate",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-login.spec.cjs",
+        "title": "QA-06 actual password login and page reload preserve a verified admin session",
+        "project": "tablet",
+        "status": "passed",
+        "expected": "passed"
+      },
+      {
+        "file": "root-cause-login.spec.cjs",
+        "title": "QA-06 actual password login and page reload preserve a verified admin session",
+        "project": "mobile",
+        "status": "passed",
+        "expected": "passed"
+      }
+    ]
+  },
+  "migration": {
+    "baseline_tables": 23,
+    "final_tables": 24,
+    "preserved_tables": 23,
+    "preserved_rows": 67,
+    "repeatable": true
+  },
+  "dependencyAudit": {
+    "backend": {
+      "info": 0,
+      "low": 0,
+      "moderate": 11,
+      "high": 2,
+      "critical": 0,
+      "total": 13
+    },
+    "frontend": {
+      "info": 0,
+      "low": 0,
+      "moderate": 8,
+      "high": 6,
+      "critical": 0,
+      "total": 14
+    }
+  },
+  "logs": {
+    "root-cause-build.log": {
+      "tests": [],
+      "pass": [],
+      "fail": [],
+      "skipped": [],
+      "sha256": "e2898148e9375d098e50c32adbf0a439f1fd3f45cbe36341b0a3b114385bba5d",
+      "exitMarker": "0"
+    },
+    "root-cause-lint.log": {
+      "tests": [],
+      "pass": [],
+      "fail": [],
+      "skipped": [],
+      "sha256": "76e9b3d1db49139aa170fd46a89c84a619580c838fd0cd3efd439b781b62b918",
+      "exitMarker": "0"
+    },
+    "root-cause-regression-entitlements.log": {
+      "tests": [
+        12
+      ],
+      "pass": [
+        12
+      ],
+      "fail": [
+        0
+      ],
+      "skipped": [
+        0
+      ],
+      "sha256": "b6f6d4c44edb88d928e52b7d6f79901b4e56a40eeaa08af7b16d35b42125bce7",
+      "exitMarker": "VALIDATION_RESULT={\"suite\": \"entitlements\", \"exit_code\": 0}"
+    },
+    "root-cause-regression-financial.log": {
+      "tests": [
+        7
+      ],
+      "pass": [
+        7
+      ],
+      "fail": [
+        0
+      ],
+      "skipped": [
+        0
+      ],
+      "sha256": "196b43a8f36b8ac24f21d9095e22b0568a7f5111e86dcd486a679ee330b57ae7",
+      "exitMarker": "VALIDATION_RESULT={\"suite\": \"financial\", \"exit_code\": 0}"
+    },
+    "root-cause-regression-payments.log": {
+      "tests": [
+        8
+      ],
+      "pass": [
+        8
+      ],
+      "fail": [
+        0
+      ],
+      "skipped": [
+        0
+      ],
+      "sha256": "254dfa1d9bf202236bab26c84620c0a579641b6f6d36dbc90eb32063a59e8731",
+      "exitMarker": "VALIDATION_RESULT={\"suite\": \"payments\", \"exit_code\": 0}"
+    },
+    "root-cause-regression-reviews.log": {
+      "tests": [
+        5
+      ],
+      "pass": [
+        5
+      ],
+      "fail": [
+        0
+      ],
+      "skipped": [
+        0
+      ],
+      "sha256": "479c8a8501b47971ef4dbea89b8b66132738c10cff4ed272f8ebee87ce777927",
+      "exitMarker": "VALIDATION_RESULT={\"suite\": \"reviews\", \"exit_code\": 0}"
+    },
+    "root-cause-regression-rootCause.log": {
+      "tests": [
+        14
+      ],
+      "pass": [
+        14
+      ],
+      "fail": [
+        0
+      ],
+      "skipped": [
+        0
+      ],
+      "sha256": "be1ec1b0a6d892cabcdcf07d58d6870d9624179d724e1fcddfc88581fc67d948",
+      "exitMarker": "VALIDATION_RESULT={\"suite\": \"rootCause\", \"exit_code\": 0}"
+    },
+    "root-cause-regression-rootCauseMigration.log": {
+      "tests": [
+        1
+      ],
+      "pass": [
+        1
+      ],
+      "fail": [
+        0
+      ],
+      "skipped": [
+        0
+      ],
+      "sha256": "0edf2433265c3305fc8fafc8f4b357b2429a92cad18a6b91c46307a2bd267371",
+      "exitMarker": "VALIDATION_RESULT={\"suite\": \"rootCauseMigration\", \"exit_code\": 0}"
+    },
+    "root-cause-regression-tryon.log": {
+      "tests": [
+        21
+      ],
+      "pass": [
+        21
+      ],
+      "fail": [
+        0
+      ],
+      "skipped": [
+        0
+      ],
+      "sha256": "c746a8a8cb4f7d15a21eeb5f2b64d6b87596317caf0b7bd16c882ecb3511c0c3",
+      "exitMarker": "VALIDATION_RESULT={\"suite\": \"tryon\", \"exit_code\": 0}"
+    },
+    "root-cause-signing-baseline.log": {
+      "tests": [
+        3
+      ],
+      "pass": [
+        2
+      ],
+      "fail": [
+        1
+      ],
+      "skipped": [
+        0
+      ],
+      "sha256": "26b2d2972d3137c7d8308f37a37695b770c5e7fc85361b4597e6245fed7590ca",
+      "exitMarker": "# duration_ms 933.502904"
+    },
+    "root-cause-syntax.log": {
+      "tests": [],
+      "pass": [],
+      "fail": [],
+      "skipped": [],
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exitMarker": "0"
+    },
+    "root-cause-unit.log": {
+      "tests": [
+        115,
+        86
+      ],
+      "pass": [
+        115,
+        86
+      ],
+      "fail": [
+        0,
+        0
+      ],
+      "skipped": [
+        0,
+        0
+      ],
+      "sha256": "e93875c1b24bc809816fa02d21afea5208d8c5c5c1967b109ec6f5b6134ad5e6",
+      "exitMarker": "0"
+    }
+  },
+  "limitations": [
+    "Live AI generation not run",
+    "Real fallback providers not configured",
+    "No real card payment or fresh SMS",
+    "No physical camera / Safari device / Firefox RCA run"
+  ]
+}
