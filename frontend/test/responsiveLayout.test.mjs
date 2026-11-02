@@ -18,12 +18,8 @@ test('exposes a mobile-safe viewport and shared overflow guards', () => {
   assert.match(styles, /\.page-header-action \{ width: 100%; \}/);
 });
 
-test('keeps public store cards and try-on controls mobile-first', () => {
-  const store = read('../src/pages/PublicStore.jsx');
+test('keeps camera playback inline with an explicit facing-mode label', () => {
   const product = read('../src/pages/PublicProduct.jsx');
-
-  assert.match(store, /grid grid-cols-1 gap-6 pb-4 sm:grid-cols-2 lg:grid-cols-4/);
-  assert.match(product, /className="grid gap-3 sm:grid-cols-2"/);
   assert.match(product, /playsInline/);
   assert.match(product, /aria-label=\{cameraFacingMode === 'environment'/);
 });
