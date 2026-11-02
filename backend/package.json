@@ -8,6 +8,7 @@
     "db:setup": "node src/database/setup.js",
     "db:export": "node src/database/export.js",
     "test:tryon:integration": "node --test test/integration/tryon.test.js",
+    "test:tryon-terms:integration": "node --test test/integration/tryonTerms.test.js",
     "test:reviews:integration": "node --test test/integration/reviews.test.js",
     "test:tryon:live": "node --test test/integration/tryonLive.test.js",
     "test:root-cause:integration": "node --test test/integration/rootCause.test.js"

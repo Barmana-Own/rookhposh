@@ -8,7 +8,8 @@ test.beforeAll(async () => { fixture = JSON.parse(await fs.readFile(process.env.
 async function prepare(page) {
   await page.goto(fixture.publicPath, { waitUntil: 'domcontentloaded' });
   await page.getByLabel('فایل تصویر شخص').setInputFiles({ name: 'qa-person.png', mimeType: 'image/png', buffer: Buffer.from(fixture.input, 'base64') });
-  await page.getByText('با پردازش عکس برای پرو و نگهداری خصوصی سوابق موافقم.', { exact: false }).click();
+  const terms = await page.request.get('/api/tryon/terms').then(r => r.json());
+  if (terms.data.required) expect((await page.request.post('/api/tryon/terms', { data: { version: terms.data.version, accepted: true } })).status()).toBe(200);
   await expect(page.getByRole('button', { name: 'ساخت خروجی پرو', exact: true })).toBeEnabled();
 }
 async function make(page, testInfo) {

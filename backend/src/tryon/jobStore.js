@@ -103,7 +103,7 @@ async function reserve(connection, sellerId) {
   throw new ApiError(402, 'اعتبار پرو آنلاین این فروشگاه تمام شده است؛ برای مشتری هزینه‌ای ثبت نمی‌شود.');
 }
 
-async function create({ id, owner, product, store, inputAsset, productAsset, imageIndex, key, telemetry, legacyUploadId = null, legacyEndpoint = null }) {
+async function create({ id, owner, product, store, inputAsset, productAsset, imageIndex, key, telemetry, legacyUploadId = null, legacyEndpoint = null, authorization }) {
   requestKey(key);
   const hash = digest([product.id, imageIndex, inputAsset.sha256, productAsset.sha256].join(':'));
   const connection = await pool.getConnection();
@@ -145,7 +145,8 @@ async function create({ id, owner, product, store, inputAsset, productAsset, ima
         telemetry.device ? JSON.stringify(telemetry.device) : null, telemetry.network, telemetry.consent ? 1 : 0, telemetry.consent ? 1 : 0,
         legacyUploadId, legacyEndpoint],
     );
-    await connection.query("UPDATE virtual_tryon_jobs SET reserved_at=NOW(3),processing_consent_at=IF(?=1,NOW(3),NULL),privacy_version=IF(?=1,'tryon-2026-11-01',NULL) WHERE id=?", [legacyUploadId ? 0 : 1, legacyUploadId ? 0 : 1, id]);
+    await connection.query('UPDATE virtual_tryon_jobs SET reserved_at=NOW(3),processing_consent_at=?,privacy_version=? WHERE id=?',
+      [authorization?.acceptedAt || null, authorization?.version || null, id]);
     await addAsset(connection, id, 'input', inputAsset);
     await addAsset(connection, id, 'product', productAsset);
     if (legacyUploadId) {

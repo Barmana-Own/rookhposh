@@ -2,10 +2,11 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { tryonApi } from '../services/tryonApi.js';
 import { preparePersonImage } from '../utils/personImage.js';
-import { activeTryonStates, basicDeviceInfo, newerOutput } from '../utils/tryon.js';
+import { activeTryonStates, newerOutput } from '../utils/tryon.js';
 
 const initial = (owner) => ({
   owner, job: null, latest: null, sending: false, ready: false, error: '', historyError: '',
+  terms: null, checkingTerms: false,
   history: { items: [], pagination: { page: 1, total: 0, totalPages: 1 } },
 });
 function reducer(state, action) {
@@ -87,24 +88,35 @@ export function useTryon() {
     void loadHistory();
   }, [job, token, loadHistory]);
 
-  const start = async ({ slug, productId, image, imageIndex, processingConsent, diagnosticsConsent }) => {
+  const start = async ({ slug, productId, image, imageIndex, acceptTermsVersion }) => {
     if (startLock.current?.owner === token || activeTryonStates.has(job?.status)) return;
-    if (!image || !processingConsent) { patch({ error: 'تصویر و رضایت پردازش را ثبت کنید.' }); return; }
+    if (!image) { patch({ error: 'تصویر خود را انتخاب کنید.' }); return; }
     const lock = { owner: token };
     startLock.current = lock;
-    patch({ sending: true, error: '' });
-    if (keyRef.current.owner !== token) keyRef.current = { owner: token, key: null };
-    keyRef.current.key ||= crypto.randomUUID();
-    const key = keyRef.current.key;
+    patch({ checkingTerms: true, error: '' });
+    let key, submitted = false;
     try {
+      const terms = acceptTermsVersion
+        ? await tryonApi.acceptTerms(acceptTermsVersion, token) : await tryonApi.terms(token);
+      if (!alive.current) return;
+      if (terms.required) { patch({ terms }); return; }
+      patch({ terms: null, checkingTerms: false, sending: true });
+      if (keyRef.current.owner !== token) keyRef.current = { owner: token, key: null };
+      keyRef.current.key ||= crypto.randomUUID();
+      key = keyRef.current.key;
       const prepared = await preparePersonImage(image);
+      if (!alive.current) return;
+      submitted = true;
       const result = await tryonApi.start(slug, productId, {
         image: prepared, image_index: imageIndex, request_key: key,
-        processing_consent: true, diagnostics_consent: Boolean(diagnosticsConsent),
-        device: diagnosticsConsent ? basicDeviceInfo() : undefined,
+        diagnostics_consent: false,
       }, token);
       if (alive.current) patch({ job: result });
     } catch (requestError) {
+      if (!submitted) {
+        if (alive.current) patch({ error: requestError.message || 'بررسی قوانین کامل نشد؛ دوباره امتحان کنید.' });
+        return;
+      }
       try {
         // A lost POST response must recover the same operation, rather than issue another charge.
         const recovered = requestError.code === 'TRYON_ALREADY_ACTIVE' && requestError.job_id
@@ -115,7 +127,7 @@ export function useTryon() {
       }
     } finally {
       if (startLock.current === lock) startLock.current = null;
-      if (alive.current) patch({ sending: false });
+      if (alive.current) patch({ sending: false, checkingTerms: false });
     }
   };
 
@@ -154,6 +166,7 @@ export function useTryon() {
   return {
     ...state, busy: state.sending || activeTryonStates.has(job?.status),
     start, retry, reset, loadHistory,
+    dismissTerms: () => { if (!startLock.current) patch({ terms: null }); },
     progressJob: state.sending ? { status: 'validating', stage: 1, progress: 0 } : job,
   };
 }

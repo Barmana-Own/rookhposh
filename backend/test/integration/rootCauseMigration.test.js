@@ -27,10 +27,17 @@ test('RCA migration preserves every existing table row, repeats safely and rolls
   const after = await snapshot();
   for (const [table, value] of Object.entries(before)) assert.deepEqual(after[table], value, 'Existing data changed in ' + table);
   assert.ok(after.virtual_tryon_session_revocations);
+  assert.ok(after.virtual_tryon_terms_acceptances);
   await ensureRuntimeSchema(); assert.deepEqual(await snapshot(), after);
   if (after.virtual_tryon_session_revocations.rows === 0) {
     assert.equal((await migration.rollbackSessionRevocations(pool, { execute: true })).executed, true);
     await migration.ensureSessionRevocations(pool);
+    assert.deepEqual(await snapshot(), after);
+  }
+  if (after.virtual_tryon_terms_acceptances.rows === 0) {
+    const termsMigration = require('../../src/database/tryonTermsSchema');
+    assert.equal((await termsMigration.rollbackTryonTerms(pool, { execute: true })).executed, true);
+    await termsMigration.ensureTryonTerms(pool);
     assert.deepEqual(await snapshot(), after);
   }
   console.log('MIGRATION_PRESERVATION=' + JSON.stringify({ baseline_tables: Object.keys(before).length, final_tables: Object.keys(after).length, preserved_tables: Object.keys(before).length, preserved_rows: Object.values(before).reduce((sum, item) => sum + item.rows, 0), repeatable: true }));

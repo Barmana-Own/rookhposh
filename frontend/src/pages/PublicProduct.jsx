@@ -15,6 +15,7 @@ import { useTryon } from '../hooks/useTryon.js';
 import TryonProgress from '../components/tryon/TryonProgress.jsx';
 import TryonHistory from '../components/tryon/TryonHistory.jsx';
 import PrivateImage from '../components/tryon/PrivateImage.jsx';
+import TryonTerms from '../components/tryon/TryonTerms.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 function withImageExtension(filename, mime) {
@@ -36,6 +37,7 @@ export default function PublicProduct() {
 function ProductTryonPage() {
   const { slug, productId } = useParams();
   const uploadInputRef = useRef(null);
+  const startButtonRef = useRef(null);
   const [store, setStore] = useState(null);
   const [error, setError] = useState('');
   const [userImage, setUserImage] = useState('');
@@ -43,8 +45,6 @@ function ProductTryonPage() {
   const [imageProcessing, setImageProcessing] = useState(false);
   const tryon = useTryon();
   const saving = tryon.busy;
-  const [processingConsent, setProcessingConsent] = useState(false);
-  const [diagnosticsConsent, setDiagnosticsConsent] = useState(false);
   const [quota, setQuota] = useState(null);
   const [selectedProductImage, setSelectedProductImage] = useState('');
   const camera = useCameraCapture();
@@ -88,7 +88,7 @@ function ProductTryonPage() {
   }, [slug, product?.id, tryon.job?.status]);
 
   const selectImage = async (file, isSelectionCurrent = () => true) => {
-    if (saving) throw new Error('تا پایان عملیات جاری، تصویر ورودی را تغییر ندهید.');
+    if (saving || tryon.checkingTerms) throw new Error('تا پایان عملیات جاری، تصویر ورودی را تغییر ندهید.');
     if (!file || (file.type && !file.type.startsWith('image/'))) {
       throw new Error('لطفاً یک فایل تصویری انتخاب کنید.');
     }
@@ -127,12 +127,12 @@ function ProductTryonPage() {
   const switchCamera = camera.switchCamera;
   const captureCameraImage = () => camera.capture(selectImage);
 
-  const runPro = () => {
-    if (!product || !userImage || saving || imageProcessing) return;
+  const runPro = (acceptTermsVersion) => {
+    if (!product || !userImage || saving || imageProcessing || tryon.checkingTerms) return;
     setError('');
     void tryon.start({
       slug, productId: product.id, image: userImage,
-      imageIndex: Math.max(0, productImages.indexOf(productImage)), processingConsent, diagnosticsConsent,
+      imageIndex: Math.max(0, productImages.indexOf(productImage)), acceptTermsVersion,
     });
   };
 
@@ -209,7 +209,7 @@ function ProductTryonPage() {
                         setSelectedProductImage(image);
                         tryon.reset();
                       }}
-                      disabled={saving || imageProcessing}
+                      disabled={saving || imageProcessing || tryon.checkingTerms}
                       aria-label={`انتخاب مدل ${index + 1}`}
                     >
                       <img src={image} alt={`مدل ${index + 1}`} className="h-20 w-full rounded-xl bg-white object-contain" />
@@ -243,7 +243,7 @@ function ProductTryonPage() {
                     type="button"
                     className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-4 text-center font-black text-indigo-700 transition hover:border-indigo-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400/20 dark:bg-indigo-500/10 dark:text-indigo-200"
                     onClick={openCamera}
-                    disabled={cameraBusy || imageProcessing || saving}
+                    disabled={cameraBusy || imageProcessing || saving || tryon.checkingTerms}
                   >
                     <Camera size={22} aria-hidden="true" />
                     <span>{cameraBusy ? 'در حال آماده‌سازی دوربین...' : 'گرفتن عکس'}</span>
@@ -253,14 +253,14 @@ function ProductTryonPage() {
                     type="button"
                     className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-4 text-center font-black text-slate-700 transition hover:border-indigo-400 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-black/20 dark:text-slate-200 dark:hover:text-indigo-200"
                     onClick={() => uploadInputRef.current?.click()}
-                    disabled={imageProcessing || saving}
+                    disabled={imageProcessing || saving || tryon.checkingTerms}
                   >
                     <Upload size={22} aria-hidden="true" />
                     <span>آپلود عکس</span>
                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400">انتخاب از دستگاه</span>
                   </button>
                 </div>
-                <input ref={uploadInputRef} className="sr-only" aria-label="فایل تصویر شخص" disabled={saving} type="file" accept="image/*" onChange={handleImageInput} />
+                <input ref={uploadInputRef} className="sr-only" aria-label="فایل تصویر شخص" disabled={saving || tryon.checkingTerms} type="file" accept="image/*" onChange={handleImageInput} />
                 {imageProcessing ? <p className="rounded-xl bg-indigo-50 px-3 py-2 text-center text-xs font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">در حال فشرده‌سازی تصویر برای ارسال امن و سریع...</p> : null}
                 {userImage ? (
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-black/20">
@@ -275,26 +275,15 @@ function ProductTryonPage() {
               </div>
 
 
-              <div className="space-y-3 text-xs leading-7 text-slate-500">
-                <label className="flex items-start gap-2">
-                  <input type="checkbox" className="mt-2 accent-indigo-600" checked={processingConsent} onChange={(event) => setProcessingConsent(event.target.checked)} disabled={saving} />
-                  <span>با پردازش عکس برای پرو و نگهداری خصوصی سوابق موافقم. می‌توانم عکس‌های هر مورد را از سوابق خود حذف کنم. سوابق ناشناس به همین مرورگر وابسته‌اند.</span>
-                </label>
-                <label className="flex items-start gap-2">
-                  <input type="checkbox" className="mt-2 accent-indigo-600" checked={diagnosticsConsent} onChange={(event) => setDiagnosticsConsent(event.target.checked)} disabled={saving} />
-                  <span>اختیاری: برای رفع اشکال، اطلاعات پایه مرورگر، اندازه صفحه و IP این عملیات حداکثر ۷ روز فقط برای مدیریت نگهداری شود.</span>
-                </label>
-              </div>
-
               <div className="flex min-h-[76px] w-full items-center justify-center" data-testid="tryon-action-slot">
                 {saving || tryon.job?.status === 'completed' ? <TryonProgress job={tryon.progressJob} /> : tryon.job?.retryable ? (
                   <button type="button" className="btn-primary justify-center" onClick={tryon.retry} disabled={imageProcessing}>
                     <RefreshCw size={18} />تلاش مجدد
                   </button>
                 ) : (
-                  <button type="button" className="btn-primary justify-center" onClick={runPro}
-                    disabled={imageProcessing || !userImage || !processingConsent || !tryon.ready || Boolean(tryon.job?.needs_reconciliation)}>
-                    <Sparkles size={18} />{tryon.error && !tryon.job ? 'تلاش مجدد' : 'ساخت خروجی پرو'}
+                  <button ref={startButtonRef} type="button" className="btn-primary justify-center" onClick={() => runPro()}
+                    disabled={imageProcessing || !userImage || tryon.checkingTerms || !tryon.ready || Boolean(tryon.job?.needs_reconciliation)}>
+                    <Sparkles size={18} />{tryon.checkingTerms ? 'در حال بررسی...' : tryon.error && !tryon.job ? 'تلاش مجدد' : 'ساخت خروجی پرو'}
                   </button>
                 )}
               </div>
@@ -319,10 +308,13 @@ function ProductTryonPage() {
                 </div>
               )}
               <TryonHistory key={tryon.owner || 'visitor'} latest={tryon.latest} history={tryon.history} error={tryon.historyError}
-                onPage={tryon.loadHistory} onDeleted={() => { tryon.reset(); void tryon.loadHistory(); }} />
+                onPage={tryon.loadHistory} />
             </div>
           </section>
         </div>
+
+        <TryonTerms terms={tryon.terms} busy={tryon.checkingTerms} error={tryon.error}
+          onAccept={() => runPro(tryon.terms.version)} onClose={tryon.dismissTerms} returnFocusRef={startButtonRef} />
 
         {cameraOpen ? (
           <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/75 p-4" role="dialog" aria-modal="true" aria-label="گرفتن عکس با دوربین">

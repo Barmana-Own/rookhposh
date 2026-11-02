@@ -93,7 +93,8 @@ test('QA-04 valid admin settings propagate to checkout without placeholder recip
 async function prepareTryon(page) {
   await page.goto(f.productPath, { waitUntil: 'domcontentloaded' });
   await page.getByLabel('فایل تصویر شخص').setInputFiles({ name: 'qa-person.png', mimeType: 'image/png', buffer: Buffer.from(f.input, 'base64') });
-  await page.getByText('با پردازش عکس برای پرو و نگهداری خصوصی سوابق موافقم.', { exact: false }).click();
+  const terms = await page.request.get('/api/tryon/terms').then(r => r.json());
+  if (terms.data.required) expect((await page.request.post('/api/tryon/terms', { data: { version: terms.data.version, accepted: true } })).status()).toBe(200);
   await expect(page.getByRole('button', { name: 'ساخت خروجی پرو', exact: true })).toBeEnabled();
 }
 async function makeTryon(page, info) {

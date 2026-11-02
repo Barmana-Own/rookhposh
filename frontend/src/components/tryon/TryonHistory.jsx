@@ -1,7 +1,5 @@
-import { ChevronDown, Download, Eye, ImagePlus, Trash2 } from 'lucide-react';
+import { ChevronDown, Download, Eye, ImagePlus } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext.jsx';
-import { tryonApi } from '../../services/tryonApi.js';
 import { downloadProOutput } from '../../utils/proOutput.js';
 import { faDateTime } from '../../utils/formatters.js';
 import { faNumber, tryonStatusLabel } from '../../utils/tryon.js';
@@ -9,14 +7,11 @@ import AccessibleModal from '../ui/AccessibleModal.jsx';
 import PrivateImage from './PrivateImage.jsx';
 import './tryon.css';
 
-export default function TryonHistory({ latest, history, error, onPage, onDeleted }) {
-  const { token } = useAuth();
+export default function TryonHistory({ latest, history, error, onPage }) {
   const [open, setOpen] = useState(false);
   const [everOpened, setEverOpened] = useState(false);
   const [preview, setPreview] = useState(null);
-  const [remove, setRemove] = useState(null);
   const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
   const downloadLock = useRef(false);
   const dialogTrigger = useRef(null);
   const regionId = useId();
@@ -31,15 +26,6 @@ export default function TryonHistory({ latest, history, error, onPage, onDeleted
         'rookhposh-tryon-' + job.id);
     } catch (downloadError) { setNotice(downloadError.message || 'دریافت فایل کامل نشد؛ دانلود را دوباره امتحان کنید.'); }
     finally { downloadLock.current = false; }
-  };
-  const erase = async () => {
-    if (!remove || busy) return;
-    setBusy(true); setNotice('');
-    try {
-      await tryonApi.erase(remove.id, token);
-      setRemove(null); onDeleted?.();
-    } catch (deleteError) { setNotice(deleteError.message || 'حذف انجام نشد.'); }
-    finally { setBusy(false); }
   };
 
   return (
@@ -63,7 +49,6 @@ export default function TryonHistory({ latest, history, error, onPage, onDeleted
           <div className="flex flex-wrap justify-center gap-2">
             <button type="button" className="btn-soft" onClick={(event) => { dialogTrigger.current = event.currentTarget; setPreview(latest); }} disabled={!latest.images?.output}><Eye size={17} />مشاهده خروجی</button>
             <button type="button" className="btn-soft" onClick={() => download(latest)} disabled={!latest.images?.output}><Download size={17} />دانلود خروجی</button>
-            <button type="button" className="btn-soft text-rose-600" onClick={(event) => { dialogTrigger.current = event.currentTarget; setRemove(latest); }}><Trash2 size={16} />حذف از سوابق</button>
           </div>
         )}
       </section>
@@ -95,7 +80,6 @@ export default function TryonHistory({ latest, history, error, onPage, onDeleted
                     <div className="flex flex-wrap gap-2">
                       <button className="btn-soft" onClick={(event) => { dialogTrigger.current = event.currentTarget; setPreview(item); }} disabled={!item.images?.output}><Eye size={15} />مشاهده</button>
                       <button className="btn-soft" onClick={() => download(item)} disabled={!item.images?.output}><Download size={15} />دانلود</button>
-                      <button className="btn-soft text-rose-600" aria-label={'حذف سابقه ' + item.id} onClick={(event) => { dialogTrigger.current = event.currentTarget; setRemove(item); }}><Trash2 size={15} /></button>
                     </div>
                   </article>
                 ))}
@@ -113,10 +97,6 @@ export default function TryonHistory({ latest, history, error, onPage, onDeleted
       </div>
       <AccessibleModal returnFocusRef={dialogTrigger} open={Boolean(preview)} title={preview?.product_title || 'مشاهده خروجی'} onClose={() => setPreview(null)} wide>
         {preview && <div className="flex h-[65vh] items-center justify-center"><PrivateImage asset={preview.images?.output} alt="نمای بزرگ خروجی پرو" className="h-full max-h-full w-full object-contain" /></div>}
-      </AccessibleModal>
-      <AccessibleModal returnFocusRef={dialogTrigger} open={Boolean(remove)} title="حذف عکس‌های این مورد" onClose={() => setRemove(null)} busy={busy}
-        description="تصاویر این مورد از سامانه فعال حذف می‌شوند و در سوابق شما نمایش داده نخواهند شد. این کار عملیات در حال پردازش را لغو نمی‌کند.">
-        <button className="btn-primary bg-rose-600" onClick={erase} disabled={busy}>{busy ? 'در حال حذف...' : 'تأیید حذف این مورد'}</button>
       </AccessibleModal>
     </div>
   );

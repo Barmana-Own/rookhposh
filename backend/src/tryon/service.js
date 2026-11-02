@@ -20,7 +20,9 @@ async function publicProduct(slug, productId) {
 async function start(req, { personBytes, legacyUpload, legacyEndpoint } = {}) {
   const { product, shop } = await publicProduct(req.params.slug, req.params.productId);
   const payload = req.body || {};
-  if (!legacyUpload && payload.processing_consent !== true) throw new ApiError(400, 'برای پردازش و نگهداری خصوصی عکس، رضایت خود را ثبت کنید.');
+  const authorization = await require('./terms').authorize(req.tryonOwner, {
+    explicitConsent: payload.processing_consent === true, legacy: Boolean(legacyUpload),
+  });
   const key = store.requestKey(legacyUpload ? 'legacy-upload-' + String(legacyUpload.id).padStart(16, '0') : payload.request_key);
   const input = personBytes || images.fromDataUrl(payload.image);
   await images.inspect(input);
@@ -37,7 +39,7 @@ async function start(req, { personBytes, legacyUpload, legacyEndpoint } = {}) {
     const result = await store.create({
       id, owner: req.tryonOwner, product, store: shop, inputAsset, productAsset, imageIndex: index, key,
       telemetry: devices.collect(req, legacyUpload ? {} : payload, id),
-      legacyUploadId: legacyUpload?.id || null, legacyEndpoint,
+      legacyUploadId: legacyUpload?.id || null, legacyEndpoint, authorization,
     });
     committed = !result.reused;
     return result.job;

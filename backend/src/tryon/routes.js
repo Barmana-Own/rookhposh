@@ -5,6 +5,7 @@ const { principal, requireAdmin, sameOrigin, assertId, COOKIE } = require('./ide
 const store = require('./jobStore');
 const service = require('./service');
 const providers = require('./providers');
+const terms = require('./terms');
 const { worker } = require('./worker');
 
 const run = (action) => async (req, res, next) => {
@@ -17,7 +18,16 @@ const ok = (res, data, status = 200) => res.status(status).json({ success: true,
 const router = express.Router();
 router.use((req, res, next) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) ? sameOrigin(req, res, next) : next());
 router.post('/session/revoke', require('../middleware/security').createRateLimit({ windowMs: 3600000, maxRequests: 10 }));
+router.post('/terms', require('../middleware/security').createRateLimit({ windowMs: 60000, maxRequests: 30 }));
 router.use(principal());
+router.get('/terms', run(async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  ok(res, await terms.status(req.tryonOwner));
+}));
+router.post('/terms', run(async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  ok(res, await terms.accept(req.tryonOwner, req.body));
+}));
 router.post('/session/revoke', run(async (req, res) => {
   if (req.tryonOwner.kind !== 'visitor') throw new ApiError(403, 'این مسیر فقط برای نشست مهمان است.');
   if (req.tryonPresentedSession) await require('./sessionRevocations').revoke(req.tryonPresentedSession.hash);
