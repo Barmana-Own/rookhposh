@@ -23,6 +23,7 @@ export default class ErrorBoundary extends Component {
           <div className="card border-rose-200 bg-rose-50/80 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
             <h1 className="text-xl font-black">خطا در نمایش این بخش</h1>
             <p className="mt-2 text-sm">صفحه با خطای داخلی روبه‌رو شد. مسیر دیگری را باز کنید یا صفحه را دوباره بارگذاری کنید.</p>
+            {this.props.reload && <button type="button" className="btn-soft mt-4" onClick={() => window.location.reload()}>بارگذاری مجدد صفحه</button>}
           </div>
         </section>
       );

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { normalizeApiErrors, toPersianMessage } from '../utils/errorMessages.js';
+import { parseRetryAfter } from '../utils/requestPolicy.js';
 
 const configuredBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
 const configuredForLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseURL || '');
@@ -25,6 +26,8 @@ apiClient.interceptors.response.use(
       message: toPersianMessage(error.response?.data?.message || error.message, 'خطای غیرمنتظره در ارتباط با سرور'),
       status: error.response?.status ?? 0,
       code: error.response?.data?.code || error.code || 'NETWORK_ERROR',
+      cancelled: error.code === 'ERR_CANCELED',
+      retryAfterMs: parseRetryAfter(error.response?.headers?.['retry-after']),
       job_id: error.response?.data?.job_id,
       errors: normalizeApiErrors(error.response?.data?.errors || []),
     }),

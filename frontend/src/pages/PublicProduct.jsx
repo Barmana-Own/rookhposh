@@ -1,7 +1,8 @@
 import { Camera, CheckCircle2, Info, RefreshCw, Shirt, Sparkles, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import apiClient from '../services/apiClient.js';
+import { usePublicStore } from '../hooks/usePublicStore.js';
+import PublicPageState, { PublicRecovery } from '../components/public/PublicPageState.jsx';
 import { publicApi } from '../services/publicApi.js';
 import TryOnNotice from '../components/ui/TryOnNotice.jsx';
 import AccessibleModal from '../components/ui/AccessibleModal.jsx';
@@ -44,7 +45,8 @@ function ProductTryonPage() {
   const uploadInputRef = useRef(null);
   const startButtonRef = useRef(null);
   const cameraButtonRef = useRef(null);
-  const [store, setStore] = useState(null);
+  const storeResource = usePublicStore(slug, productId);
+  const store = storeResource.data;
   const [error, setError] = useState('');
   const [userImage, setUserImage] = useState('');
   const [fileName, setFileName] = useState('');
@@ -52,6 +54,8 @@ function ProductTryonPage() {
   const tryon = useTryon();
   const saving = tryon.busy;
   const [quota, setQuota] = useState(null);
+  const [quotaState, setQuotaState] = useState({ loading: false, error: '' });
+  const [quotaRevision, setQuotaRevision] = useState(0);
   const [selectedProductImage, setSelectedProductImage] = useState('');
   const camera = useCameraCapture();
   const { videoRef: cameraVideoRef, isOpen: cameraOpen, busy: cameraBusy,
@@ -60,15 +64,6 @@ function ProductTryonPage() {
   const showBodyGuide = shouldShowBodyGuide(camera);
   const imageSelectionIdRef = useRef(0);
   const closeCamera = camera.close;
-
-  useEffect(() => {
-    const controller = new AbortController();
-    apiClient
-      .get(`/api/stores/${slug}`, { signal: controller.signal })
-      .then((response) => { if (!controller.signal.aborted) { setStore(response.data.data); if (!response.data.data) setError('فروشگاه پیدا نشد.'); } })
-      .catch((fetchError) => { if (!controller.signal.aborted) setError(fetchError.message); });
-    return () => controller.abort();
-  }, [slug]);
 
   const product = useMemo(
     () => store?.products?.find((item) => Number(item.id) === Number(productId)),
@@ -82,13 +77,13 @@ function ProductTryonPage() {
   const productFeatures = getProductFeatures(product);
 
   useEffect(() => {
-    if (!product?.id) return undefined;
+    if (!product?.id || storeResource.offline) return undefined;
     let mounted = true;
     publicApi.getProQuota(slug, product.id)
-      .then((value) => { if (mounted) setQuota(value); })
-      .catch(() => { if (mounted) setQuota(null); });
+      .then((value) => { if (mounted) { setQuota(value); setQuotaState({ loading: false, error: '' }); } })
+      .catch((requestError) => { if (mounted) setQuotaState({ loading: false, error: requestError.message || 'دریافت اعتبار فروشگاه کامل نشد.' }); });
     return () => { mounted = false; };
-  }, [slug, product?.id, tryon.job?.status]);
+  }, [slug, product?.id, tryon.job?.status, storeResource.offline, quotaRevision]);
 
   const selectImage = async (file, isSelectionCurrent = () => true) => {
     if (saving || tryon.checkingTerms) throw new Error('تا پایان عملیات جاری، تصویر ورودی را تغییر ندهید.');
@@ -124,6 +119,7 @@ function ProductTryonPage() {
   };
 
   const openCamera = () => {
+    if (cameraBusy || imageProcessing || saving || tryon.checkingTerms) return false;
     setError('');
     return camera.open();
   };
@@ -139,13 +135,7 @@ function ProductTryonPage() {
     });
   };
 
-  if (error && !store) {
-    return <main dir="rtl" className="public-page"><div role="alert" className="public-state public-surface">{error}</div></main>;
-  }
-
-  if (!store) {
-    return <main dir="rtl" className="public-page"><div role="status" className="public-state public-surface">در حال دریافت محصول...</div></main>;
-  }
+  if (!store) return <PublicPageState resource={storeResource} product />;
 
   if (!product) {
     return <main dir="rtl" className="public-page"><div className="public-state public-surface">محصول پیدا نشد.</div></main>;
@@ -154,6 +144,7 @@ function ProductTryonPage() {
   return (
     <main dir="rtl" className="public-page public-page--tryon">
       <section className="public-container">
+        <PublicRecovery resource={storeResource} product inline />
         <PublicStoreHero store={store} compact />
         <div className="public-tryon-layout">
           <SelectedProductPanel product={product} image={productImage} images={productImages} features={productFeatures}
@@ -172,7 +163,8 @@ function ProductTryonPage() {
                 <div className="public-upload-label"><span>تصویر کاربر</span>{fileName && <span className="public-file-name" title={fileName}>{fileName}</span>}</div>
                 <div className="public-upload-options">
                   <button ref={cameraButtonRef} type="button" className="public-upload-option public-upload-option--camera" onClick={openCamera}
-                    disabled={cameraBusy || imageProcessing || saving || tryon.checkingTerms}>
+                    aria-busy={cameraBusy} aria-disabled={cameraBusy || imageProcessing || saving || tryon.checkingTerms}
+                    disabled={cameraBusy && cameraOpen || imageProcessing || saving || tryon.checkingTerms}>
                     <Camera size={26} aria-hidden="true" />
                     <b>{cameraBusy ? 'در حال آماده‌سازی دوربین...' : 'گرفتن عکس'}</b>
                     <span>دریافت مجوز و استفاده از دوربین</span>
@@ -204,10 +196,15 @@ function ProductTryonPage() {
                 )}
               </div>
               <div className="public-operation-feedback" aria-live="polite">
-                {(error || tryon.error || tryon.job?.error_message) ? (
+                {tryon.reconnecting && <div role="status" className="public-operation-connection">
+                  <p>{tryon.pendingRequestKey ? 'وضعیت دریافت درخواست هنوز مشخص نیست؛ همان شناسه پیگیری می‌شود.' : 'در انتظار اتصال مجدد؛ همان عملیات در سرور پیگیری می‌شود.'}</p>
+                  {tryon.pendingRequestKey && <button type="button" className="public-button public-button--outline" onClick={tryon.retryPending} disabled={tryon.sending}>پیگیری و تلاش مجدد همین درخواست</button>}
+                </div>}
+                {(error || tryon.error || !tryon.busy && tryon.job?.error_message) ? (
                   <div role="alert" className="public-operation-error">
                     <p>{error || tryon.error || tryon.job?.error_message}</p>
                     {tryon.job && <p className="public-operation-id">شناسه عملیات: {tryon.job.id}</p>}
+                    {tryon.trackingStopped && <button type="button" className="public-button public-button--outline" onClick={tryon.retryTracking}>تلاش مجدد پیگیری عملیات</button>}
                   </div>
                 ) : tryon.job?.status === 'completed' ? (
                   <div className="public-success"><p><CheckCircle2 size={29} aria-hidden="true" />خروجی با موفقیت ذخیره شد.</p><button type="button" className="btn-soft" onClick={tryon.reset}>پرو جدید</button></div>
@@ -217,6 +214,8 @@ function ProductTryonPage() {
                 )}
               </div>
               {quota && <div className="public-credit-notice"><Info size={19} aria-hidden="true" /><p>{saving ? 'پرو آنلاین برای شما رایگان است؛ وضعیت همین درخواست در بالا نمایش داده می‌شود.' : proQuotaMessage(quota)}</p></div>}
+              {(quotaState.loading || !quota && !quotaState.error && !storeResource.offline) && <p role="status" className="public-independent-error">در حال دریافت اعتبار فروشگاه...</p>}
+              {quotaState.error && <p role="status" className="public-independent-error">وضعیت اعتبار فروشگاه به‌روز نشد. <button type="button" onClick={() => { setQuotaState({ loading: true, error: '' }); setQuotaRevision(value => value + 1); }} disabled={quotaState.loading}>تلاش مجدد دریافت اعتبار</button></p>}
               <TryonHistory key={tryon.owner || 'visitor'} latest={tryon.latest} history={tryon.history} error={tryon.historyError} onPage={tryon.loadHistory} />
             </div>
           </section>

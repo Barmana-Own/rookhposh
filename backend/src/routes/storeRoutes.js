@@ -1,6 +1,9 @@
 const router = require('express').Router();
 const controller = require('../controllers/storeController');
 
+router.get('/:slug/media/products/:productId/:index', controller.publicMedia);
+router.get('/:slug/media/:kind', controller.publicMedia);
+
 router.get('/:slug/products/:productId/pro/quota', controller.publicProQuota);
 router.get('/:slug/products/:productId/pro/history', controller.publicProHistory);
 router.post('/:slug/products/:productId/pro/upload', controller.publicUploadProImage);

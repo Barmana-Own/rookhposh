@@ -11,15 +11,15 @@ export default function PublicStoreHero({ store, compact = false }) {
     <header className={`public-hero${compact ? ' public-hero--compact' : ''}${contained ? ' public-hero--contained' : ''}`}>
       <div className="public-hero-banner">
         <PublicWaves brand />
-        {contained && <img className="public-hero-banner-edges" src={store.banner} alt="" aria-hidden="true" decoding="async" />}
-        <PublicImage src={store.banner} alt={`بنر ${store.store_name}`} loading="eager"
+        {contained && <PublicImage className="public-hero-banner-edges" src={store.banner} alt="" decorative profile="banner" loading="eager" />}
+        <PublicImage src={store.banner} alt={`بنر ${store.store_name}`} loading="eager" profile="banner" retryable
           onLoad={(event) => setBannerShape({ source: store.banner, aspect: event.currentTarget.naturalWidth / event.currentTarget.naturalHeight })}
           className="public-hero-banner-image" fallback={<PublicWaves brand />} />
       </div>
       <div className="public-store-identity">
         <PublicWaves className="public-identity-waves" />
         <div className="public-store-logo">
-          <PublicImage src={store.logo} alt={`نشان ${store.store_name}`} loading="eager"
+          <PublicImage src={store.logo} alt={`نشان ${store.store_name}`} loading="eager" profile="logo" retryable
             fallback={<Store size={38} aria-hidden="true" />} />
         </div>
         <div className="public-store-details">

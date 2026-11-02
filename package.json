@@ -9,7 +9,9 @@
     "test:unit": "npm run test --prefix backend && node --test frontend/test/*.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:root-cause": "playwright test --config=playwright.root-cause.config.cjs",
-    "test:e2e:public-ui": "playwright test --config=playwright.public-ui.config.cjs"
+    "test:e2e:public-ui": "playwright test --config=playwright.public-ui.config.cjs",
+    "test:e2e:network": "playwright test --config=playwright.network.config.cjs",
+    "bench:network": "node e2e/network-benchmark.cjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

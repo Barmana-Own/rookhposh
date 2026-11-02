@@ -1,6 +1,7 @@
 import apiClient from '../services/apiClient.js';
 import { detectImageMime } from './proResponse.js';
 import { imageDownloadName } from './tryon.js';
+import { FILE_TIMEOUT_MS } from './requestPolicy.js';
 
 const providerHosts = new Set([
   '91.107.232.169',
@@ -84,6 +85,7 @@ export async function downloadProOutput(source, filename) {
   } else {
     const response = await apiClient.get(getProOutputSource(source), {
       responseType: 'blob',
+      timeout: FILE_TIMEOUT_MS,
       withCredentials: true,
       headers: { Accept: 'image/*' },
     });

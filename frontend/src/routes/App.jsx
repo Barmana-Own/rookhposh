@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
-import AppLayout from '../components/layout/AppLayout.jsx';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import ErrorBoundary from '../components/ui/ErrorBoundary.jsx';
 import SkeletonGrid from '../components/ui/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { accountHome } from '../utils/authNavigation.js';
@@ -34,6 +34,12 @@ const ErrorPage = lazy(() => import('../pages/ErrorPage.jsx'));
 const PublicStore = lazy(() => import('../pages/PublicStore.jsx'));
 const PublicProduct = lazy(() => import('../pages/PublicProduct.jsx'));
 const PaymentResult = lazy(() => import('../pages/PaymentResult.jsx'));
+const PrivateLayout = lazy(() => import('../components/layout/AppLayout.jsx'));
+
+function AppLayout({ role }) {
+  const location = useLocation();
+  return <ErrorBoundary resetKey={location.pathname}><PrivateLayout role={role} /></ErrorBoundary>;
+}
 
 function HomeRedirect() {
   const { user, status } = useAuth();
@@ -42,7 +48,9 @@ function HomeRedirect() {
 }
 
 export default function App() {
+  const location = useLocation();
   return (
+    <ErrorBoundary resetKey={location.pathname} reload>
     <Suspense fallback={<SkeletonGrid />}>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
@@ -87,5 +95,6 @@ export default function App() {
         <Route path="*" element={<ErrorPage />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   );
 }

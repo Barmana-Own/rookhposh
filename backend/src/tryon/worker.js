@@ -4,27 +4,30 @@ const client = require('./providerClient');
 const images = require('./images');
 const pool = require('../config/database');
 const { unseal } = require('./config');
+const { jobTiming } = require('./performance');
 
-function createWorker({ repository = store, providerStore = providers, providerClient = client, imageStore = images } = {}) {
+function createWorker({ repository = store, providerStore = providers, providerClient = client, imageStore = images, onTiming = event => console.info(JSON.stringify(event)) } = {}) {
   let stopped = true, running = false, timer = null, abort = null;
   let idle = Promise.resolve();
   let recoveredAt = 0;
 
-  async function finishSaved(job, staged) {
-    await imageStore.read(staged.asset);
-    await repository.addAsset(pool, job.id, 'output', staged.asset);
-    await repository.rememberOutput(job, staged.provider);
-    await repository.transition(job, 'saving', 4, 75);
-    await repository.finalize({ ...job, completionRequestId: staged.requestId });
+  async function finishSaved(job, staged, timing) {
+    await timing.measure('output_integrity', () => imageStore.read(staged.asset));
+    await timing.measure('output_persistence', async () => {
+      await repository.addAsset(pool, job.id, 'output', staged.asset);
+      await repository.rememberOutput(job, staged.provider);
+      await repository.transition(job, 'saving', 4, 75);
+      await repository.finalize({ ...job, completionRequestId: staged.requestId });
+    });
     await providerStore.succeeded(staged.provider.id);
     await imageStore.clearStage(job.id);
   }
 
-  async function saveResult(job, result, provider) {
+  async function saveResult(job, result, provider, timing) {
     if (result.source) await repository.rememberOutput(job, provider, result.source);
     let bytes = result.bytes;
     if (!bytes) {
-      try { bytes = await imageStore.loadSource(result.source, { allowedHosts: [new URL(provider.endpoint).hostname, ...(provider.options?.output_hosts || [])] }); }
+      try { bytes = await timing.measure('output_transfer', () => imageStore.loadSource(result.source, { allowedHosts: [new URL(provider.endpoint).hostname, ...(provider.options?.output_hosts || [])] })); }
       catch (error) {
         if ([400, 413].includes(error.status) || error.code === 'UNSAFE_DESTINATION') {
           await repository.forgetOutput(job);
@@ -34,37 +37,38 @@ function createWorker({ repository = store, providerStore = providers, providerC
       }
     }
     let durable;
-    try { durable = await imageStore.stage(job.id, bytes, provider, result.requestId); }
+    try { durable = await timing.measure('output_validation_storage', () => imageStore.stage(job.id, bytes, provider, result.requestId)); }
     catch { throw new client.ProviderFailure('OUTPUT_STORAGE_FAILED', { uncertain: true }); }
     try {
       await repository.transition(job, 'saving', 3, 50);
-      await finishSaved(job, durable);
+      await finishSaved(job, durable, timing);
     }
     catch { throw new client.ProviderFailure('SAVE_FAILED', { recoverable: true }); }
   }
 
   async function execute(job) {
+    const timing = jobTiming(job, onTiming);
     const heartbeat = setInterval(() => repository.heartbeat(job).catch(() => abort?.abort()), 25000);
     abort = new AbortController();
     try {
       let durable;
       try { durable = await imageStore.staged(job.id); }
       catch { throw new client.ProviderFailure('OUTPUT_STORAGE_FAILED', { uncertain: true }); }
-      if (durable) { await finishSaved(job, durable); return; }
-      const files = await repository.assets(job.id);
+      if (durable) { await finishSaved(job, durable, timing); return true; }
+      const files = await timing.measure('asset_metadata', () => repository.assets(job.id));
       if (files.some((file) => file.kind === 'output')) {
         await repository.transition(job, 'saving', 4, 75);
         await repository.finalize(job);
-        return;
+        return true;
       }
       if (job.provider_output_ciphertext) {
         const previous = JSON.parse(unseal(job.provider_output_ciphertext, 'output:' + job.id));
-        await saveResult(job, { source: previous.source }, previous.provider);
-        return;
+        await saveResult(job, { source: previous.source }, previous.provider, timing);
+        return true;
       }
-      const input = await imageStore.read(files.find((file) => file.kind === 'input'));
-      const garment = await imageStore.read(files.find((file) => file.kind === 'product'));
-      const enabled = await providerStore.active();
+      const input = await timing.measure('input_read', () => imageStore.read(files.find((file) => file.kind === 'input')));
+      const garment = await timing.measure('garment_read', () => imageStore.read(files.find((file) => file.kind === 'product')));
+      const enabled = await timing.measure('provider_settings', () => providerStore.active());
       if (!enabled.length) throw new client.ProviderFailure('NO_ACTIVE_PROVIDER', { recoverable: true, retryAfter: 60 });
       let lastError;
       for (const provider of enabled) {
@@ -74,10 +78,10 @@ function createWorker({ repository = store, providerStore = providers, providerC
           await repository.transition(job, 'processing', 2, null);
           const attemptId = await repository.attemptStarted(job, provider);
           try {
-            const result = await providerClient.generate(provider, job, input, garment, { signal: abort.signal });
-            await saveResult(job, result, provider);
+            const result = await timing.measure('provider_round_trip', () => providerClient.generate(provider, job, input, garment, { signal: abort.signal }));
+            await saveResult(job, result, provider, timing);
             await repository.attemptFinished(attemptId, { success: true, requestId: result.requestId });
-            return;
+            return true;
           } catch (error) {
             lastError = error instanceof client.ProviderFailure ? error : new client.ProviderFailure('TRYON_FAILED');
             await repository.attemptFinished(attemptId, {
@@ -94,8 +98,10 @@ function createWorker({ repository = store, providerStore = providers, providerC
       }
       throw lastError || new client.ProviderFailure('TRYON_FAILED');
     } catch (error) {
+      timing.failed(error);
       await repository.fail(job, error);
-    } finally { clearInterval(heartbeat); abort = null; }
+      return false;
+    } finally { clearInterval(heartbeat); abort = null; timing.finish(); }
   }
 
   async function tick() {
@@ -103,6 +109,7 @@ function createWorker({ repository = store, providerStore = providers, providerC
     running = true;
     let finish;
     idle = new Promise((resolve) => { finish = resolve; });
+    let handledJob = false;
     try {
       if (Date.now() - recoveredAt >= 15000) {
         const staged = [];
@@ -117,13 +124,14 @@ function createWorker({ repository = store, providerStore = providers, providerC
         recoveredAt = Date.now();
       }
       const job = await repository.claim();
-      if (job) await execute(job);
+      if (job) handledJob = await execute(job);
     } catch (error) {
       const code = /^[A-Z0-9_]{1,80}$/.test(error.code || '') ? error.code : 'WORKER_FAILURE';
       console.error(JSON.stringify({ component: 'tryon-worker', code }));
     } finally {
       running = false; finish();
-      if (!stopped) { timer = setTimeout(tick, 1000); timer.unref?.(); }
+      // Drain successful jobs serially; retain the existing pause after failures/cooldowns.
+      if (!stopped) { timer = setTimeout(tick, handledJob ? 0 : 1000); timer.unref?.(); }
     }
   }
 

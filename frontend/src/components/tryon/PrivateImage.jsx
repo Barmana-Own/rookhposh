@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import apiClient from '../../services/apiClient.js';
+import { FILE_TIMEOUT_MS } from '../../utils/requestPolicy.js';
+import { tryonTiming } from '../../utils/tryonTiming.js';
 
 export default function PrivateImage({ asset, alt, className = '', onMetadata }) {
   const { token } = useAuth() || {};
@@ -8,11 +10,17 @@ export default function PrivateImage({ asset, alt, className = '', onMetadata })
   const [failed, setFailed] = useState(null);
   const [revision, setRevision] = useState(0);
   useEffect(() => {
+    if (!failed || failed.url !== asset?.url || failed.token !== token) return undefined;
+    const connected = () => { setFailed(null); setLoaded(null); setRevision(value => value + 1); };
+    globalThis.addEventListener?.('online', connected);
+    return () => globalThis.removeEventListener?.('online', connected);
+  }, [failed, asset?.url, token]);
+  useEffect(() => {
     if (!asset?.url) return undefined;
     const controller = new AbortController();
     let objectUrl;
     apiClient.get(asset.url, {
-      responseType: 'blob', withCredentials: true, signal: controller.signal,
+      responseType: 'blob', withCredentials: true, signal: controller.signal, timeout: FILE_TIMEOUT_MS,
       headers: { Authorization: token ? 'Bearer ' + token : null },
     }).then((response) => {
       if (controller.signal.aborted) return;
@@ -27,6 +35,9 @@ export default function PrivateImage({ asset, alt, className = '', onMetadata })
   if (failed?.url === asset.url && failed.token === token) return <div role="alert" className="space-y-2 break-words text-center text-sm text-rose-600"><p>{failed.message}</p><button type="button" className="btn-soft" onClick={() => { setFailed(null); setLoaded(null); setRevision((value) => value + 1); }}>تلاش مجدد دریافت تصویر</button></div>;
   if (loaded?.url !== asset.url || loaded.token !== token) return <span role="status" className="text-sm text-slate-500">در حال دریافت تصویر...</span>;
   return <img src={loaded.source} alt={alt} className={className}
-    onLoad={(event) => onMetadata?.({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight, mime: loaded.mime, byte_size: loaded.byte_size })}
+    onLoad={(event) => {
+      onMetadata?.({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight, mime: loaded.mime, byte_size: loaded.byte_size });
+      if (asset.url.includes('/images/output')) tryonTiming('output-rendered', asset.url.split('/jobs/')[1]?.split('/')[0], { bytes: loaded.byte_size });
+    }}
     onError={() => setFailed({ url: asset.url, token, message: 'فایل تصویر قابل نمایش نیست.' })} />;
 }

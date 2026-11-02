@@ -157,13 +157,14 @@ async function create({ id, owner, product, store, inputAsset, productAsset, ima
       if (!changed.affectedRows) throw new ApiError(409, 'تصویر قبلاً در عملیات دیگری استفاده شده است.');
     }
     await connection.commit();
-    return { job: await raw(id), reused: false };
+    // Do not borrow a second pool connection while this one is still reserved.
+    return { job: await raw(id, connection), reused: false };
   } catch (error) {
     await connection.rollback();
     if (error.code === 'ER_DUP_ENTRY') {
-      const [[existing]] = await pool.query('SELECT * FROM virtual_tryon_jobs WHERE owner_hash=? AND request_key=?', [owner.hash, key]);
+      const [[existing]] = await connection.query('SELECT * FROM virtual_tryon_jobs WHERE owner_hash=? AND request_key=?', [owner.hash, key]);
       if (existing && existing.request_hash === hash) return { job: existing, reused: true };
-      const [[active]] = await pool.query('SELECT id FROM virtual_tryon_jobs WHERE active_owner_key=?', [owner.hash]);
+      const [[active]] = await connection.query('SELECT id FROM virtual_tryon_jobs WHERE active_owner_key=?', [owner.hash]);
       if (active) {
         const conflict = new ApiError(409, 'یک عملیات شما هنوز در حال پردازش است.');
         conflict.code = 'TRYON_ALREADY_ACTIVE'; conflict.jobId = active.id; throw conflict;
@@ -379,7 +380,7 @@ async function finalize(job) {
     await connection.query('INSERT INTO notifications(user_id,title,body,type,related_id,is_read) VALUES(?,?,?,?,?,0)',
       [current.seller_id, 'درخواست پرو آنلاین جدید', 'برای محصول «' + current.product_title + '» یک پرو موفق ثبت شد.', 'pro_usage', usage.insertId]);
     await connection.commit();
-    return raw(current.id);
+    return await raw(current.id, connection);
   } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
 }
 
@@ -407,7 +408,7 @@ async function retry(id, owner, key) {
         quota.quota_source, quota.subscription_id, quota.package_id, key, id],
     );
     await connection.commit();
-    return raw(id);
+    return await raw(id, connection);
   } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
 }
 

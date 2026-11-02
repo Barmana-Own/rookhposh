@@ -7,6 +7,7 @@ const service = require('./service');
 const providers = require('./providers');
 const terms = require('./terms');
 const { worker } = require('./worker');
+const { performance } = require('node:perf_hooks');
 
 const run = (action) => async (req, res, next) => {
   try { await action(req, res); } catch (error) {
@@ -61,8 +62,11 @@ router.get('/jobs/:id/images/:kind', run(async (req, res) => {
 
 const storeRouter = express.Router();
 storeRouter.post('/:slug/products/:productId/pro/jobs', sameOrigin, principal(), run(async (req, res) => {
+  const began = performance.now();
   const job = await service.start(req);
-  ok(res, await store.dto(job), 202); worker.wake();
+  const value = await store.dto(job);
+  res.set('Server-Timing', 'tryon_accept;dur=' + (performance.now() - began).toFixed(1));
+  ok(res, value, 202); worker.wake();
 }));
 // Preserve the original URLs/envelopes through the same owner/job/credit boundary.
 storeRouter.post('/:slug/products/:productId/pro/upload', sameOrigin, principal({ legacyVisitor: true }),

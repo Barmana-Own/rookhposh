@@ -489,6 +489,7 @@ async function listProducts({
   excludePendingChanges = false,
   compactImages = false,
   includeUnpublished = false,
+  includePendingChanges = true,
 } = {}) {
   const where = [];
   const params = [];
@@ -558,7 +559,7 @@ async function listProducts({
       );
     }
   } else {
-    productFields.push('p.images', 'p.pending_changes');
+    productFields.push('p.images', includePendingChanges ? 'p.pending_changes' : 'NULL AS pending_changes');
   }
   if (includeQr) productFields.push('p.qr_code');
   if (includeReviewStats) {
